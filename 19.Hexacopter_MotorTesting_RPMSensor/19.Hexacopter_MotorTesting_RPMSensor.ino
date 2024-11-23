@@ -26,7 +26,7 @@ READY - PLEASE SEND INSTRUCTIONS AS FOLLOWING :");
 #define ledGreen 31
 #define ledTeensy 13
 
-int motorTestPin = mot2Pin;
+int motorTestPin = mot1Pin;
 
 // Customize here pulse lengths as needed
 #define MIN_PULSE_LENGTH 1000 // Minimum pulse length in µs

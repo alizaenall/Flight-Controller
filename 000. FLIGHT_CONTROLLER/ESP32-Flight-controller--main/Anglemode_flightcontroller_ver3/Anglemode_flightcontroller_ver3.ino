@@ -61,22 +61,22 @@ const int channel_4_pin = 33;
 const int channel_5_pin = 25;
 const int channel_6_pin = 26;
 
-volatile float PtermRoll;
-volatile float ItermRoll;
-volatile float DtermRoll;
-volatile float PIDOutputRoll;
-volatile float PtermPitch;
-volatile float ItermPitch;
-volatile float DtermPitch;
-volatile float PIDOutputPitch;
-volatile float PtermYaw;
-volatile float ItermYaw;
-volatile float DtermYaw;
-volatile float PIDOutputYaw;
-volatile float KalmanGainPitch;
-volatile float KalmanGainRoll;
+volatile float PtermRoll; 
+volatile float ItermRoll; 
+volatile float DtermRoll; 
+volatile float PIDOutputRoll; 
+volatile float PtermPitch; 
+volatile float ItermPitch; 
+volatile float DtermPitch; 
+volatile float PIDOutputPitch; 
+volatile float PtermYaw; 
+volatile float ItermYaw; 
+volatile float DtermYaw; 
+volatile float PIDOutputYaw; 
+volatile float KalmanGainPitch; 
+volatile float KalmanGainRoll; 
 
-int ThrottleIdle = 1170;
+int ThrottleIdle = 1170; 
 int ThrottleCutOff = 1000;
 
 volatile float DesiredRateRoll, DesiredRatePitch, DesiredRateYaw;

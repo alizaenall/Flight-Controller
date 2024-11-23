@@ -95,8 +95,7 @@ float   alti = 0;
 
 // PID 
 // float RatePitch, RateRoll, RateYaw;
-float RateCalibrationPitch, RateCalibrationRoll, RateCalibrationYaw;
-int RateCalibrationNumber;
+
 
 float DesiredRateRoll, DesiredRatePitch, DesiredRateYaw;
 float ErrorRateRoll, ErrorRatePitch, ErrorRateYaw;
@@ -310,8 +309,8 @@ void voltageCurrentRead(){
 
 void runMotor(){
 
-    // analogWrite(motorTestPin,1.024*thr);
-    // Serial.println(thr);
+  // analogWrite(motorTestPin,1.024*thr);
+  // Serial.println(thr);
   analogWrite(MotorPin1,MotorInput1);
   analogWrite(MotorPin2,MotorInput2);
   analogWrite(MotorPin3,MotorInput3); 

@@ -44,8 +44,7 @@ void setup() {
   LoopTimer=micros();
 }
 void loop() {
-  read_receiver();
-  InputThrottle=ReceiverValue[2];
+  
   // PWM Signal
   analogWrite(mot1Pin,1.024*InputThrottle);
   analogWrite(mot2Pin,1.024*InputThrottle);
