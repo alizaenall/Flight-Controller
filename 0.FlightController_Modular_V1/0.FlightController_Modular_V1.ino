@@ -23,6 +23,8 @@
 
 
 // Enable or disable modules by commenting/uncommenting
+#define ENABLE_CUSTOM
+
 #define ENABLE_MOTOR            // 5        // DEFAULT QUAD
 // #define ENABLE_MOTOR_HEXACOPTER             // UNCOMMENT FOR HEXACOPTER
 // #define ENABLE_MOTOR_MANUAL_ALL
@@ -31,13 +33,13 @@
 // #define ENABLE_MOTOR_MANUAL_3
 // #define ENABLE_MOTOR_MANUAL_4
 
-#define ENABLE_IMU              // 1 
+#define ENABLE_IMU              // 1  
 #define ENABLE_BMP              // 2  
-#define ENABLE_LIDAR            // 3
-#define ENABLE_VOLTAGE_CURRENT  // 4
+#define ENABLE_LIDAR            // 3  
+#define ENABLE_VOLTAGE_CURRENT  // 4  
 // #define ENABLE_PID              // 6  // DURUNG
 // #define ENABLE_SD_CARD          // 7  
-#define ENABLE_RPM              // 8  // Durung
+// #define ENABLE_RPM              // 8  // Durung
 #define ENABLE_RTC
 // #define ENABLE_RECEIVER         // 9 
 #define ENABLE_USER_INPUT      // 10
@@ -60,7 +62,7 @@
           #define ENABLE_MONITORING_VOLTAGE_CURRENT_1HZ
           #define ENABLE_MONITORING_MOTOR_1HZ
           // #define ENABLE_MONITORING_PID_1HZ
-          #define ENABLE_MONITORING_RPM_1HZ
+          // #define ENABLE_MONITORING_RPM_1HZ
           #define ENABLE_MONITORING_RTC_1HZ
     // #define ENABLE_MONITORING_10HZ
           // #define ENABLE_MONITORING_IMU_10HZ
@@ -601,6 +603,7 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
 #endif
 
 // 8. rpm Sensor
+
 #ifdef ENABLE_RPM
   #define poles 12
   #define rpmPin 8
@@ -620,15 +623,15 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
 
   void initRpm(){
     pinMode(rpmPin, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(rpmPin), interruptRPM, FALLING);
+    attachInterrupt(digitalPinToInterrupt(rpmPin), interruptRPM, RISING);
   }
   void readRpm(){
-    int counterThreshold = 4;
+    int counterThreshold = 1;
     if (counter > counterThreshold) {
       float period = 0;
-      // period = (float)(micros() - timer) / counter;
+      period = (float)(micros() - timer) / counter;
       // period = (float)(micros() - iT);
-      period = iT;
+      // period = iT;
       measuredRPM = (60000000.0 * counter) / (period * poles / 2);
       // measuredRPM = measuredRPM
       // if (abs(measuredRPM - prev_measuredRPM) > 1000) {
@@ -651,14 +654,49 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
   }
 
   FASTRUN void interruptRPM(){
-  cT = micros();
-  iT = cT - pT;
-  pT = cT; 
+  // cT = micros();
+  // iT = cT - pT;
+  // pT = cT; 
   counter++;
   asm("DSB");
   }
+#endif
 
+  unsigned long rpm = 0;
+  volatile unsigned long pulseInterval = 0;
+#ifdef ENABLE_CUSTOM
+  #include <IntervalTimer.h>
+  IntervalTimer rpmTimer;
+  volatile unsigned long lastPulseTime = 0;
+  
+  
+  FASTRUN void pulseHandler() {
+  unsigned long currentTime = micros(); // Current time in microseconds
+  pulseInterval = currentTime - lastPulseTime; // Time between pulses
+  lastPulseTime = currentTime;
+  }
 
+  void calculateRPM() {
+  if (pulseInterval > 0) {
+    float frequency = 1000000.0  / pulseInterval; // Convert µs interval to frequency (Hz)
+    rpm = (frequency * 60.0) / 6;
+
+    // pada fungsi interupt, hindari penggunaan serial print
+    // Serial.print("RPM: ");
+    // Serial.println(rpm);
+    // Serial.print(" | Interval: ");
+    // Serial.print(pulseInterval);
+  } else {
+    // Serial.println("No pulses detected");
+  }
+  }
+
+  void printRpm(){
+    Serial.print("RPM: ");
+    Serial.print(rpm);
+    Serial.print(" | Interval: ");
+    Serial.println(pulseInterval);
+  } 
 #endif
 
 // 9. Receiver
@@ -1114,6 +1152,12 @@ void setup(){
   // available @ readRpm();
   #endif
 
+  #ifdef ENABLE_CUSTOM
+    pinMode(8, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(8), pulseHandler, RISING); // Detect rising edges
+    rpmTimer.begin(calculateRPM, 10000); // Call calculateRPM every 100ms
+  #endif  
+
   #ifdef ENABLE_LED
   initLed();
   // available @ ledBlink();
@@ -1200,6 +1244,11 @@ void loop(){
     #ifdef ENABLE_SERIAL1_100HZ
       logSerial1();
     #endif
+
+    #ifdef ENABLE_CUSTOM
+      printRpm();
+    #endif
+    
 
     // End Timer
     pM100Hz = cMillis;
