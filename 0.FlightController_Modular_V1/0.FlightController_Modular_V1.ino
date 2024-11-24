@@ -25,7 +25,7 @@
 // Enable or disable modules by commenting/uncommenting
 #define ENABLE_CUSTOM
 
-#define ENABLE_MOTOR            // 5        // DEFAULT QUAD
+#define ENABLE_MOTOR             // 5        // DEFAULT QUAD
 // #define ENABLE_MOTOR_HEXACOPTER             // UNCOMMENT FOR HEXACOPTER
 // #define ENABLE_MOTOR_MANUAL_ALL
 #define ENABLE_MOTOR_MANUAL_1
@@ -1299,9 +1299,5 @@ void loop(){
     // End Timer
     pM1Hz = cMillis;
   }
-
   // End Loop
 }
-
-
-
