@@ -23,25 +23,31 @@
 
 
 // Enable or disable modules by commenting/uncommenting
-#define ENABLE_CUSTOM
+// #define ENABLE_CUSTOM
 
 #define ENABLE_MOTOR             // 5        // DEFAULT QUAD
 // #define ENABLE_MOTOR_HEXACOPTER             // UNCOMMENT FOR HEXACOPTER
 // #define ENABLE_MOTOR_MANUAL_ALL
-#define ENABLE_MOTOR_MANUAL_1
+#define ENABLE_MOTOR_MANUAL_PER_MOTOR
+// #define ENABLE_MOTOR_MANUAL_1
 // #define ENABLE_MOTOR_MANUAL_2
 // #define ENABLE_MOTOR_MANUAL_3
 // #define ENABLE_MOTOR_MANUAL_4
 
-#define ENABLE_IMU              // 1  
-#define ENABLE_BMP              // 2  
-#define ENABLE_LIDAR            // 3  
-#define ENABLE_VOLTAGE_CURRENT  // 4  
-// #define ENABLE_PID              // 6  // DURUNG
+// #define ENABLE_IMU              // 1  
+// #define ENABLE_BMP              // 2  
+// #define ENABLE_LIDAR            // 3  
+// #define ENABLE_VOLTAGE_CURRENT  // 4  
+// #define ENABLE_PID_RATE              // 6  // DURUNG
+// #define ENABLE_RATE_MODE
+// #define ENABLE_ANGLE_MODE
 // #define ENABLE_SD_CARD          // 7  
-// #define ENABLE_RPM              // 8  // Durung
-#define ENABLE_RTC
-// #define ENABLE_RECEIVER         // 9 
+// #define ENABLE_RPM_1            // 8.1  // Durung
+// #define ENABLE_RPM_2            // 8.2
+// #define ENABLE_RPM_3            // 8.3
+// #define ENABLE_RPM_4            // 8.4
+// #define ENABLE_RTC
+// #define ENABLE_RECEIVER         // 9 .
 #define ENABLE_USER_INPUT      // 10
 #define ENABLE_LED
   // #define ENABLE_IMU_PRINT      // done
@@ -50,20 +56,20 @@
   // #define ENABLE_VOLTAGE_CURRENT_PRINT
   // #define ENABLE_MOTOR_PRINT
   // #define ENABLE_PID_PRINT   
-  // #define ENABLE_RPM_PRINT             // DURUNG
+  // #define ENABLE_RPM_1_PRINT             // DURUNG
   // #define ENABLE_RTC_PRINT
   // #define ENABLE_RECEIVER_PRINT  // DURUNG
 
 #define ENABLE_INTERVAL  // WAJIB
     #define ENABLE_MONITORING_1HZ
-          #define ENABLE_MONITORING_IMU_1HZ
-          #define ENABLE_MONITORING_BMP_1HZ
-          #define ENABLE_MONITORING_LIDAR_1HZ
-          #define ENABLE_MONITORING_VOLTAGE_CURRENT_1HZ
+//           #define ENABLE_MONITORING_IMU_1HZ
+//           #define ENABLE_MONITORING_BMP_1HZ
+//           #define ENABLE_MONITORING_LIDAR_1HZ
+//           #define ENABLE_MONITORING_VOLTAGE_CURRENT_1HZ
           #define ENABLE_MONITORING_MOTOR_1HZ
           // #define ENABLE_MONITORING_PID_1HZ
           // #define ENABLE_MONITORING_RPM_1HZ
-          #define ENABLE_MONITORING_RTC_1HZ
+          // #define ENABLE_MONITORING_RTC_1HZ
     // #define ENABLE_MONITORING_10HZ
           // #define ENABLE_MONITORING_IMU_10HZ
           // #define ENABLE_MONITORING_BMP_10HZ
@@ -75,11 +81,11 @@
           // #define ENABLE_MONITORING_RTC_10HZ
     // #define ENABLE_MONITORING_DYNAMIC              // BELUM BISA
   
-// #define ENABLE_SERIAL1            // COM15 // Tools > UBS_Type > Dual_Serial
-  /*Choose ONE of SERIAL FREQUENCY from option BELOW*/
+#define ENABLE_SERIAL1            // COM15 // Tools > UBS_Type > Dual_Serial
+  //Choose ONE of SERIAL FREQUENCY from option BELOW/
   // #define ENABLE_SERIAL1_500HZ
   // #define ENABLE_SERIAL1_100HZ
-  // #define ENABLE_SERIAL1_10HZ
+  #define ENABLE_SERIAL1_10HZ
   // #define ENABLE_SERIAL1_1HZ
 
 
@@ -343,6 +349,10 @@
 
 
   float input_throttle = MIN_PULSE_LENGTH;
+  float motor1_throttle = 0;
+  float motor2_throttle = 0;
+  float motor3_throttle = 0;
+  float motor4_throttle = 0;
 
   void initMotor(){
     analogWriteFrequency(MotorPin1, 500);
@@ -374,8 +384,8 @@
 
     #ifdef ENABLE_MOTOR_PRINT
       Serial.print("Motor| ");
-      Serial.print("M1: "); Serial.print(MotorInput1); Serial.print("| M2: "); Serial.print(MotorInput2);
-      Serial.print("| M3: "); Serial.print(MotorInput3); Serial.print("| M4: "); Serial.print(MotorInput4);
+      Serial.print("M1: "); Serial.print(m1); Serial.print("| M2: "); Serial.print(m2);
+      Serial.print("| M3: "); Serial.print(m3); Serial.print("| M4: "); Serial.print(m4);
       Serial.print("| M5: "); Serial.print(MotorInput5); Serial.print("| M6: "); Serial.println(MotorInput6);
     #endif
   }
@@ -383,7 +393,7 @@
 
 // 8. PID
 float setPointRpm = 0;
-#ifdef ENABLE_PID
+#ifdef ENABLE_PID_RATE
   // Inner Control
   setPointRpm = 0;
   float DesiredRpm = setPointRpm;
@@ -400,7 +410,7 @@ float setPointRpm = 0;
   float DRateRoll=0.03 ; float DRatePitch=DRateRoll; float DRateYaw=0;
   // float MotorInput1, MotorInput2, MotorInput3, MotorInput4;
   // SetPoint Controller PID
-  float ManualThrottle = 1400;
+  float ManualThrottle = input_throttle;
   float ManualRateRoll = 0;
   float ManualRatePitch = 0;
   float ManualRateYaw = 0;
@@ -414,8 +424,8 @@ float setPointRpm = 0;
     InputThrottle=ManualThrottle;
     // DesiredRateYaw=0.15*(ReceiverValue[3]-1500);
     DesiredRateYaw=ManualRateYaw;
-
   }
+
   void pidEquation(float Error, float P , float I, float D, float PrevError, float PrevIterm) {
     float Pterm=P*Error;
     float Iterm=PrevIterm+I*(Error+PrevError)*0.004/2;
@@ -602,68 +612,194 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
 
 #endif
 
-// 8. rpm Sensor
+// 8.1. rpm Sensor 1
 
-#ifdef ENABLE_RPM
-  #define poles 12
-  #define rpmPin 8
-  unsigned long lastSampleTime = 0;  // Waktu terakhir untuk sampling tetap
-  unsigned long timer = 0;           // Waktu pulsa terakhir
-  volatile unsigned long counter = 0;
-  float rpm = 0;
-  float measuredRPM = 0;
-  float prev_measuredRPM = 0;
-  float filteredRPM = 0;  // Nilai RPM setelah Kalman Filter
-  float measuredRPM_Kalman = 0;
-  float measuredRPMKalman_Before = 0;
+  float rpm_1 = 0;
+  volatile unsigned long pulseInterval_1 = 0;
+#ifdef ENABLE_RPM_1
+  #include <IntervalTimer.h>
+  IntervalTimer rpmTimer_1;
+  volatile unsigned long lastPulseTime_1 = 0;
 
-  unsigned long cT = 0;
-  unsigned long pT = 0;
-  unsigned long iT = 0;
-
-  void initRpm(){
-    pinMode(rpmPin, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(rpmPin), interruptRPM, RISING);
-  }
-  void readRpm(){
-    int counterThreshold = 1;
-    if (counter > counterThreshold) {
-      float period = 0;
-      period = (float)(micros() - timer) / counter;
-      // period = (float)(micros() - iT);
-      // period = iT;
-      measuredRPM = (60000000.0 * counter) / (period * poles / 2);
-      // measuredRPM = measuredRPM
-      // if (abs(measuredRPM - prev_measuredRPM) > 1000) {
-      //     // Jika perubahan terlalu besar, gunakan nilai sebelumnya
-      //     measuredRPM = prev_measuredRPM;
-      // } else {}
-
-      Serial.print("Counter: ");
-      Serial.print(counter);
-      Serial.print(", Time: ");Serial.print(micros());
-      Serial.print(", Period: "); Serial.print(period);
-      Serial.print(", MeasuredRpm: ");Serial.println(measuredRPM);
-      
-      timer = micros();
-      // prev_measuredRPM = measuredRPM;
-      // measuredRPM_Kalman = measuredRPM;
-      // measuredRPMKalman_Before = measuredRPM;
-      counter = 0;  // Reset counter setelah penghitungan
-    }
+  #define inputRPM_1 6 
+  
+  FASTRUN void pulseHandler_1() {
+  unsigned long currentTime_1 = micros(); // Current time in microseconds
+  pulseInterval_1 = currentTime_1 - lastPulseTime_1; // Time between pulses
+  lastPulseTime_1 = currentTime_1;
   }
 
-  FASTRUN void interruptRPM(){
-  // cT = micros();
-  // iT = cT - pT;
-  // pT = cT; 
-  counter++;
-  asm("DSB");
+  void initRPM_1(){
+    pinMode(inputRPM_1, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(inputRPM_1), pulseHandler_1, RISING); // Detect rising edges
+    rpmTimer_1.begin(calculateRPM_1, 10000); // Call calculateRPM every 100ms
   }
+
+  void calculateRPM_1() {
+  if (pulseInterval_1 > 0 && ((unsigned long)micros()) - lastPulseTime_1 <= 20000) {
+    float frequency_1 = 1000000.0  / pulseInterval_1; // Convert µs interval to frequency (Hz)
+    rpm_1 = (frequency_1 * 60.0) / 7;
+
+    // pada fungsi interupt, hindari penggunaan serial print
+    // Serial.print("RPM: ");
+    // Serial.println(rpm);
+    // Serial.print(" | Interval: ");
+    // Serial.print(pulseInterval);
+  } else if (((unsigned long)micros()) - lastPulseTime_1 > 20000) {
+    // Serial.println("No pulses detected");
+    rpm_1 = 0;
+  }
+  }
+
+  void printRpm_1(){
+    Serial.print("RPM 1: ");
+    Serial.print(rpm_1);
+    Serial.print(" | Interval 1: ");
+    Serial.println(pulseInterval_1);
+  } 
 #endif
 
-  unsigned long rpm = 0;
-  volatile unsigned long pulseInterval = 0;
+// 8.2. rpm Sensor 2
+
+  float rpm_2 = 0;
+  volatile unsigned long pulseInterval_2 = 0;
+#ifdef ENABLE_RPM_2
+  #include <IntervalTimer.h>
+  IntervalTimer rpmTimer_2;
+  volatile unsigned long lastPulseTime_2 = 0;
+
+  #define inputRPM_2 7 
+  
+  FASTRUN void pulseHandler_2() {
+  unsigned long currentTime_2 = micros(); // Current time in microseconds
+  pulseInterval_2 = currentTime_2 - lastPulseTime_2; // Time between pulses
+  lastPulseTime_2 = currentTime_2;
+  }
+
+  void initRPM_2(){
+    pinMode(inputRPM_2, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(inputRPM_2), pulseHandler_2, RISING); // Detect rising edges
+    rpmTimer_2.begin(calculateRPM_2, 10000); // Call calculateRPM every 100ms
+  }
+
+  void calculateRPM_2() {
+  if (pulseInterval_2 > 0 && ((unsigned long)micros()) - lastPulseTime_2 <= 20000) {
+    float frequency_2 = 1000000.0  / pulseInterval_2; // Convert µs interval to frequency (Hz)
+    rpm_2 = (frequency_2 * 60.0) / 7;
+
+    // pada fungsi interupt, hindari penggunaan serial print
+    // Serial.print("RPM: ");
+    // Serial.println(rpm);
+    // Serial.print(" | Interval: ");
+    // Serial.print(pulseInterval);
+  } else if (((unsigned long)micros()) - lastPulseTime_2 > 20000) {
+    // Serial.println("No pulses detected");
+    rpm_2 = 0;
+  }
+  }
+
+  void printRpm_2(){
+    Serial.print("RPM 2: ");
+    Serial.print(rpm_2);
+    Serial.print(" | Interval 2: ");
+    Serial.println(pulseInterval_2);
+  } 
+#endif
+
+// 8.3. rpm Sensor 3
+
+  float rpm_3 = 0;
+  volatile unsigned long pulseInterval_3 = 0;
+#ifdef ENABLE_RPM_3
+  #include <IntervalTimer.h>
+  IntervalTimer rpmTimer_3;
+  volatile unsigned long lastPulseTime_3 = 0;
+
+  #define inputRPM_3 8 
+  
+  FASTRUN void pulseHandler_3() {
+  unsigned long currentTime_3 = micros(); // Current time in microseconds
+  pulseInterval_3 = currentTime_3 - lastPulseTime_3; // Time between pulses
+  lastPulseTime_3 = currentTime_3;
+  }
+
+  void initRPM_3(){
+    pinMode(inputRPM_3, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(inputRPM_3), pulseHandler_3, RISING); // Detect rising edges
+    rpmTimer_3.begin(calculateRPM_3, 10000); // Call calculateRPM every 100ms
+  }
+
+  void calculateRPM_3() {
+  if (pulseInterval_3 > 0 && ((unsigned long)micros()) - lastPulseTime_3 <= 20000) {
+    float frequency_3 = 1000000.0  / pulseInterval_3; // Convert µs interval to frequency (Hz)
+    rpm_3 = (frequency_3 * 60.0) / 7;
+
+    // pada fungsi interupt, hindari penggunaan serial print
+    // Serial.print("RPM: ");
+    // Serial.println(rpm);
+    // Serial.print(" | Interval: ");
+    // Serial.print(pulseInterval);
+  } else if (((unsigned long)micros()) - lastPulseTime_3 > 20000) {
+    // Serial.println("No pulses detected");
+    rpm_3 = 0;
+  }
+  }
+
+  void printRpm_3(){
+    Serial.print("RPM 3 : ");
+    Serial.print(rpm_3);
+    Serial.print(" | Interval 3 : ");
+    Serial.println(pulseInterval_3);
+  } 
+#endif
+
+// 8.4. rpm Sensor 4
+
+  float rpm_4 = 0;
+  volatile unsigned long pulseInterval_4 = 0;
+#ifdef ENABLE_RPM_4
+  #include <IntervalTimer.h>
+  IntervalTimer rpmTimer_4;
+  volatile unsigned long lastPulseTime_4 = 0;
+
+  #define inputRPM_4 9 
+  
+  FASTRUN void pulseHandler_4() {
+  unsigned long currentTime_4 = micros(); // Current time in microseconds
+  pulseInterval_4 = currentTime_4 - lastPulseTime_4; // Time between pulses
+  lastPulseTime_4 = currentTime_4;
+  }
+
+  void initRPM_4(){
+    pinMode(inputRPM_4, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(inputRPM_4), pulseHandler_4, RISING); // Detect rising edges
+    rpmTimer_4.begin(calculateRPM_4, 10000); // Call calculateRPM every 100ms
+  }
+
+  void calculateRPM_4() {
+  if (pulseInterval_4 > 0 && ((unsigned long)micros()) - lastPulseTime_4 <= 20000) {
+    float frequency_4 = 1000000.0  / pulseInterval_4; // Convert µs interval to frequency (Hz)
+    rpm_4 = (frequency_4 * 60.0) / 7;
+
+    // pada fungsi interupt, hindari penggunaan serial print
+    // Serial.print("RPM: ");
+    // Serial.println(rpm);
+    // Serial.print(" | Interval: ");
+    // Serial.print(pulseInterval);
+  } else if (((unsigned long)micros()) - lastPulseTime_4 > 20000) {
+    // Serial.println("No pulses detected");
+    rpm_4 = 0;
+  }
+  }
+
+  void printRpm_4(){
+    Serial.print("RPM 4 : ");
+    Serial.print(rpm_4);
+    Serial.print(" | Interval 4 : ");
+    Serial.println(pulseInterval_4);
+  } 
+#endif
+
 #ifdef ENABLE_CUSTOM
   #include <IntervalTimer.h>
   IntervalTimer rpmTimer;
@@ -677,17 +813,18 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
   }
 
   void calculateRPM() {
-  if (pulseInterval > 0) {
+  if (pulseInterval > 0 && ((unsigned long)micros()) - lastPulseTime <= 20000) {
     float frequency = 1000000.0  / pulseInterval; // Convert µs interval to frequency (Hz)
-    rpm = (frequency * 60.0) / 6;
+    rpm = (frequency * 60.0) / 7;
 
     // pada fungsi interupt, hindari penggunaan serial print
     // Serial.print("RPM: ");
     // Serial.println(rpm);
     // Serial.print(" | Interval: ");
     // Serial.print(pulseInterval);
-  } else {
+  } else if (((unsigned long)micros()) - lastPulseTime > 20000) {
     // Serial.println("No pulses detected");
+    rpm = 0;
   }
   }
 
@@ -726,7 +863,7 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
       ReceiverValue[i - 1] = ReceiverInput.read(i);
       }
     }
-  InputThrottle=ReceiverValue[2];
+  input_throttle=ReceiverValue[2];
   }
 
 #endif
@@ -737,7 +874,7 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
   int timerCounter;
   void displayInstructions(){  
     Serial.println("\n\nUSER INPUT INTEGER on SERIAL MONITOR");
-    Serial.println("    0  \tSending minimum throttle");
+    Serial.println("    18  \tSending minimum throttle");
     Serial.println("    1  \tSending maximum throttle");
     Serial.println("    2  \tRunning test");
     Serial.println("    3  \tThrottle : 1100");
@@ -754,7 +891,11 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
     Serial.println("   14  \tSP_RPM: +500");
     Serial.println("   15  \tSP_RPM: -500");
     Serial.println("   16  \tSP_RPM: +1000");
-    Serial.println("   17  \tSP_RPM: -1000\n\n");
+    Serial.println("   17  \tSP_RPM: -1000");
+    Serial.println("   19 (4 digit PWM) \tSend Throttle to Motor 1 Manual");
+    Serial.println("   20 (4 digit PWM) \tSend Throttle to Motor 2 Manual");
+    Serial.println("   21 (4 digit PWM) \tSend Throttle to Motor 3 Manual");
+    Serial.println("   22 (4 digit PWM) \tSend Throttle to Motor 4 Manual\n\n");
   }
 
   void userInput(){
@@ -763,10 +904,10 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
         data = Serial.parseInt();
         switch (data) {
             // 0 char  == 48 ascii
-            // case 0 : Serial.println("\nSending minimum throttle\n");
-            //           input_throttle = MIN_PULSE_LENGTH;
-            //           Serial.print("input_throttle min: ");Serial.println(input_throttle);
-            // break;
+            case 18 : Serial.println("\nSending minimum throttle\n");
+                      input_throttle = MIN_PULSE_LENGTH;
+                      Serial.print("input_throttle min: ");Serial.println(input_throttle);
+            break;
 
             // 1
             case 1 : Serial.println("\nSending maximum throttle\n");
@@ -848,6 +989,66 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
             case 17 : Serial.println("SP_RPM: -1000");
                       setPointRpm =- 1000;
             break;
+            case 19:
+                Serial.println("\nSet Throttle for Motor 1\n");
+                Serial.println("Enter value (e.g., 1100):");
+                while (!Serial.available());
+                motor1_throttle = Serial.parseInt();
+                // Konfirmasi nilai throttle yang dimasukkan
+                if (motor1_throttle > 999 && motor1_throttle < 2001) {
+                  Serial.print("Motor 1 Throttle set to: "); 
+                  Serial.println(motor1_throttle);
+                } else {
+                  Serial.println("Invalid input. Please enter a valid number.");
+                }
+                // Serial.print("Motor 1 Throttle set to: "); Serial.println(motor1_throttle);
+                // runMotor1(motor1_throttle); // Fungsi untuk motor 1
+                break;
+
+            case 20:
+                Serial.println("\nSet Throttle for Motor 2\n");
+                Serial.println("Enter value (e.g., 1200):");
+                while (!Serial.available());
+                motor2_throttle = Serial.parseInt();
+                if (motor2_throttle > 999 && motor2_throttle < 2001) {
+                  Serial.print("Motor 2 Throttle set to: "); 
+                  Serial.println(motor2_throttle);
+                } else {
+                  Serial.println("Invalid input. Please enter a valid number.");
+                }
+                // Serial.print("Motor 2 Throttle set to: "); Serial.println(motor2_throttle);
+                // runMotor2(motor2_throttle); // Fungsi untuk motor 2
+                break;
+
+            case 21:
+                Serial.println("\nSet Throttle for Motor 3\n");
+                Serial.println("Enter value (e.g., 1300):");
+                while (!Serial.available());
+                motor3_throttle = Serial.parseInt();
+                if (motor3_throttle > 999 && motor3_throttle < 2001) {
+                  Serial.print("Motor 3 Throttle set to: "); 
+                  Serial.println(motor3_throttle);
+                } else {
+                  Serial.println("Invalid input. Please enter a valid number.");
+                }
+                // Serial.print("Motor 3 Throttle set to: "); Serial.println(motor3_throttle);
+                // runMotor3(motor3_throttle); // Fungsi untuk motor 3
+                break;
+
+            case 22:
+                Serial.println("\nSet Throttle for Motor 4\n");
+                Serial.println("Enter value (e.g., 1400):");
+                while (!Serial.available());
+                motor4_throttle = Serial.parseInt();
+                if (motor4_throttle > 999 && motor4_throttle < 2001) {
+                  Serial.print("Motor 4 Throttle set to: "); 
+                  Serial.println(motor4_throttle);
+                } else {
+                  Serial.println("Invalid input. Please enter a valid number.");
+                }
+                // Serial.print("Motor 4 Throttle set to: "); Serial.println(motor4_throttle);
+                // runMotor4(motor4_throttle); // Fungsi untuk motor 4
+                break;
         }
     }
   }
@@ -1077,8 +1278,8 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
   }
   void logSerial1(){
     char bufferSerial1[512];
-    int lenSerial1 = snprintf(bufferSerial1, sizeof(bufferSerial1), "%lu,%f,%f,%f,%f,%f,%f,%f\n", 
-                       cMillis,input_throttle,RateRoll, RatePitch, RateYaw, Roll, Pitch, Yaw);
+    int lenSerial1 = snprintf(bufferSerial1, sizeof(bufferSerial1), "%lu,%f,%f,%f,%f,%f\n", 
+                       cMillis,input_throttle,MotorInput1, MotorInput2, MotorInput3, MotorInput4);
     SerialUSB1.write(bufferSerial1, lenSerial1); // Write the entire buffer at once
   }
 #endif
@@ -1121,7 +1322,7 @@ void setup(){
     // available @ runMotor(m1,m2,m3,m4,m5,m6);
   #endif
 
-  #ifdef ENABLE_PID
+  #ifdef ENABLE_PID_RATE
     initPid();
     // available @ loopPid();
   #endif
@@ -1147,9 +1348,20 @@ void setup(){
   displayInstructions();
   #endif
 
-  #ifdef ENABLE_RPM
-  initRpm();
-  // available @ readRpm();
+  #ifdef ENABLE_RPM_1
+    initRPM_1();
+  #endif
+
+  #ifdef ENABLE_RPM_2
+    initRPM_2();
+  #endif
+
+  #ifdef ENABLE_RPM_3
+    initRPM_3();
+  #endif
+
+  #ifdef ENABLE_RPM_4
+    initRPM_4();
   #endif
 
   #ifdef ENABLE_CUSTOM
@@ -1172,48 +1384,46 @@ void loop(){
   cMicros = micros();
   cMillis = millis();
 
-  #ifdef ENABLE_RPM
-      readRpm();
-      
-  #endif
 
   // 500Hz
   if (cMicros - pM500Hz >= interval500Hz){
     // Fuction & Command
-    #ifdef ENABLE_PID
+    #ifdef ENABLE_PID_RATE
       loopPid();
     #endif
     #ifdef ENABLE_MOTOR
       #ifdef ENABLE_MOTOR_MANUAL_ALL
-      MotorInput1 = input_throttle;
-      MotorInput2 = input_throttle;
-      MotorInput3 = input_throttle;
-      MotorInput4 = input_throttle;
-      #else
-          #ifdef ENABLE_MOTOR_MANUAL_1
-          MotorInput1 = input_throttle;
-          #endif
-          #ifdef ENABLE_MOTOR_MANUAL_2
-          MotorInput2 = input_throttle;
-          #endif
-          #ifdef ENABLE_MOTOR_MANUAL_3
-          MotorInput3 = input_throttle;
-          #endif
-          #ifdef ENABLE_MOTOR_MANUAL_4
-          MotorInput4 = input_throttle;
-          #endif
+        MotorInput1 = input_throttle;
+        MotorInput2 = input_throttle;
+        MotorInput3 = input_throttle;
+        MotorInput4 = input_throttle;
+      #elif defined(ENABLE_MOTOR_MANUAL_1) || defined(ENABLE_MOTOR_MANUAL_2) || defined(ENABLE_MOTOR_MANUAL_3) || defined(ENABLE_MOTOR_MANUAL_4)
+        #ifdef ENABLE_MOTOR_MANUAL_1
+            MotorInput1 = input_throttle;
+        #endif
+        #ifdef ENABLE_MOTOR_MANUAL_2
+            MotorInput2 = input_throttle;
+        #endif
+        #ifdef ENABLE_MOTOR_MANUAL_3
+            MotorInput3 = input_throttle;
+        #endif
+        #ifdef ENABLE_MOTOR_MANUAL_4
+            MotorInput4 = input_throttle;
+        #endif
+      #elif defined(ENABLE_MOTOR_MANUAL_PER_MOTOR)
+        MotorInput1 = motor1_throttle + input_throttle;
+        MotorInput2 = motor2_throttle + input_throttle;
+        MotorInput3 = motor3_throttle + input_throttle;
+        MotorInput4 = motor4_throttle + input_throttle;
       #endif
-    runMotor(MotorInput1,MotorInput2, MotorInput3,MotorInput4);
+      runMotor(MotorInput1, MotorInput2, MotorInput3, MotorInput4);
     #endif
+
     
     #ifdef ENABLE_SD_CARD
       logData();  
     #endif
     
-    // #ifdef ENABLE_RPM
-    //   readRpm();
-      
-    // #endif
     
     #ifdef ENABLE_SERIAL1_500HZ
       logSerial1();
@@ -1227,13 +1437,14 @@ void loop(){
 
   // 100Hz
   if (cMillis - pM100Hz >= interval100Hz){
+    
     // Fuction & Command
+    #ifdef ENABLE_USER_INPUT
+      userInput();
+    #endif
     #ifdef ENABLE_IMU
       readImu();
     #endif
-    // #ifdef ENABLE_RPM
-    //   readRpm();
-    // #endif
     #ifdef ENABLE_RECEIVER
       readReceiver();
     #endif
@@ -1249,6 +1460,21 @@ void loop(){
       printRpm();
     #endif
     
+    #ifdef ENABLE_RPM_1
+      printRpm_1();
+    #endif
+    
+    #ifdef ENABLE_RPM_2
+      printRpm_2();
+    #endif
+
+    #ifdef ENABLE_RPM_3
+      printRpm_3();
+    #endif
+
+    #ifdef ENABLE_RPM_4
+      printRpm_4();
+    #endif
 
     // End Timer
     pM100Hz = cMillis;
@@ -1282,9 +1508,7 @@ void loop(){
     #ifdef ENABLE_LED
       ledBlink();
     #endif
-    #ifdef ENABLE_USER_INPUT
-      userInput();
-    #endif
+    
     #ifdef ENABLE_RTC
       rtc();
     #endif
