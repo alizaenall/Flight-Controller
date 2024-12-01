@@ -16,7 +16,7 @@ float IAngleRoll=0.5; float IAnglePitch=IAngleRoll;
 float DAngleRoll=0.007; float DAnglePitch=DAngleRoll;
 
 float PRateRoll = 0.625;
-float IRateRoll = 2.1;
+float IRateRoll = 0.01;
 float DRateRoll = 0.0088;
 
 float PRatePitch = PRateRoll;

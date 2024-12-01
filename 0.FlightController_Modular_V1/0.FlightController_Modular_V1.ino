@@ -18,6 +18,8 @@
   //15 SP_RPM: -500
   //16 SP_RPM: +1000
   //17 SP_RPM: -1000
+  //30 RefRoll : ... Input...
+
 */
 
 
@@ -28,19 +30,19 @@
 #define ENABLE_MOTOR             // 5        // DEFAULT QUAD
 // #define ENABLE_MOTOR_HEXACOPTER             // UNCOMMENT FOR HEXACOPTER
 // #define ENABLE_MOTOR_MANUAL_ALL
-#define ENABLE_MOTOR_MANUAL_PER_MOTOR
+// #define ENABLE_MOTOR_MANUAL_PER_MOTOR
 // #define ENABLE_MOTOR_MANUAL_1
 // #define ENABLE_MOTOR_MANUAL_2
 // #define ENABLE_MOTOR_MANUAL_3
 // #define ENABLE_MOTOR_MANUAL_4
 
-// #define ENABLE_IMU              // 1  
+#define ENABLE_IMU              // 1  
 // #define ENABLE_BMP              // 2  
 // #define ENABLE_LIDAR            // 3  
 // #define ENABLE_VOLTAGE_CURRENT  // 4  
 // #define ENABLE_PID_RATE              // 6  // DURUNG
-// #define ENABLE_RATE_MODE
-// #define ENABLE_ANGLE_MODE
+#define ENABLE_PID_ANGLE
+#define ENABLE_PID_ANGLE_ONLY
 // #define ENABLE_SD_CARD          // 7  
 // #define ENABLE_RPM_1            // 8.1  // Durung
 // #define ENABLE_RPM_2            // 8.2
@@ -50,28 +52,29 @@
 // #define ENABLE_RECEIVER         // 9 .
 #define ENABLE_USER_INPUT      // 10
 #define ENABLE_LED
-  // #define ENABLE_IMU_PRINT      // done
+  #define ENABLE_IMU_PRINT      // done
   // #define ENABLE_BMP_PRINT      
   // #define ENABLE_LIDAR_PRINT
   // #define ENABLE_VOLTAGE_CURRENT_PRINT
   // #define ENABLE_MOTOR_PRINT
-  // #define ENABLE_PID_PRINT   
+  // #define ENABLE_PID_RATE_PRINT
+  #define ENABLE_PID_ANGLE_PRINT   
   // #define ENABLE_RPM_1_PRINT             // DURUNG
   // #define ENABLE_RTC_PRINT
   // #define ENABLE_RECEIVER_PRINT  // DURUNG
 
 #define ENABLE_INTERVAL  // WAJIB
-    #define ENABLE_MONITORING_1HZ
+    // #define ENABLE_MONITORING_1HZ
 //           #define ENABLE_MONITORING_IMU_1HZ
 //           #define ENABLE_MONITORING_BMP_1HZ
 //           #define ENABLE_MONITORING_LIDAR_1HZ
 //           #define ENABLE_MONITORING_VOLTAGE_CURRENT_1HZ
-          #define ENABLE_MONITORING_MOTOR_1HZ
+          // #define ENABLE_MONITORING_MOTOR_1HZ
           // #define ENABLE_MONITORING_PID_1HZ
           // #define ENABLE_MONITORING_RPM_1HZ
           // #define ENABLE_MONITORING_RTC_1HZ
-    // #define ENABLE_MONITORING_10HZ
-          // #define ENABLE_MONITORING_IMU_10HZ
+    #define ENABLE_MONITORING_10HZ
+          #define ENABLE_MONITORING_IMU_10HZ
           // #define ENABLE_MONITORING_BMP_10HZ
           // #define ENABLE_MONITORING_LIDAR_10HZ
           // #define ENABLE_MONITORING_VOLTAGE_CURRENT_10HZ
@@ -84,8 +87,8 @@
 #define ENABLE_SERIAL1            // COM15 // Tools > UBS_Type > Dual_Serial
   //Choose ONE of SERIAL FREQUENCY from option BELOW/
   // #define ENABLE_SERIAL1_500HZ
-  // #define ENABLE_SERIAL1_100HZ
-  #define ENABLE_SERIAL1_10HZ
+  #define ENABLE_SERIAL1_100HZ
+  // #define ENABLE_SERIAL1_10HZ
   // #define ENABLE_SERIAL1_1HZ
 
 
@@ -189,10 +192,10 @@
       RateRoll = mpu.GyrData.x;    // Roll Rate  (deg/s)
       RatePitch = mpu.GyrData.y;   // Pitch Rate (deg/s)
       RateYaw = mpu.GyrData.z;     // Yaw Rate   (deg/s)
-      Roll = mpu.EulerAngles.x;     // Roll      (deg)
+      Roll = mpu.EulerAngles.z;;     // Roll      (deg)
       Pitch = mpu.EulerAngles.y;    // Pitch     (deg)
-      Yaw = mpu.EulerAngles.z;      // Pitch     (deg)
-
+      Yaw = mpu.EulerAngles.x;      // Pitch     (deg)
+    
       #ifdef ENABLE_IMU_PRINT
         Serial.print("IMU| ");
         Serial.print("Gx:");Serial.print(RateRoll); Serial.print(" | ");
@@ -393,10 +396,13 @@
 
 // 8. PID
 float setPointRpm = 0;
+float RefRateRoll = 0;
+float RefRatePitch = 0;
+float RefRateYaw = 0;
 #ifdef ENABLE_PID_RATE
   // Inner Control
-  setPointRpm = 0;
-  float DesiredRpm = setPointRpm;
+  // setPointRpm = 0;
+  // float DesiredRpm = setPointRpm;
 
   // Supervisory Control
   float DesiredRateRoll, DesiredRatePitch, DesiredRateYaw;
@@ -405,17 +411,19 @@ float setPointRpm = 0;
   float PrevErrorRateRoll, PrevErrorRatePitch, PrevErrorRateYaw;
   float PrevItermRateRoll, PrevItermRatePitch, PrevItermRateYaw;
   float PIDReturn[]={0, 0, 0};
-  float PRateRoll=0.6 ; float PRatePitch=PRateRoll; float PRateYaw=2;
-  float IRateRoll=3.5 ; float IRatePitch=IRateRoll; float IRateYaw=12;
-  float DRateRoll=0.03 ; float DRatePitch=DRateRoll; float DRateYaw=0;
+  float PRateRoll=1 ; float PRatePitch=0; float PRateYaw=0;
+  float IRateRoll=0; float IRatePitch=0; float IRateYaw=0;
+  float DRateRoll=0 ; float DRatePitch=0; float DRateYaw=0;
   // float MotorInput1, MotorInput2, MotorInput3, MotorInput4;
   // SetPoint Controller PID
   float ManualThrottle = input_throttle;
-  float ManualRateRoll = 0;
-  float ManualRatePitch = 0;
-  float ManualRateYaw = 0;
+  float ManualRateRoll = RefRateRoll;
+  float ManualRatePitch = RefRatePitch;
+  float ManualRateYaw = RefRateYaw;
 
-  void initPid(){
+  
+
+  void initPidRate(){
     // DesiredRateRoll=0.15*(ReceiverValue[0]-1500);
     DesiredRateRoll=ManualRateRoll;
     // DesiredRatePitch=0.15*(ReceiverValue[1]-1500);
@@ -426,7 +434,13 @@ float setPointRpm = 0;
     DesiredRateYaw=ManualRateYaw;
   }
 
-  void pidEquation(float Error, float P , float I, float D, float PrevError, float PrevIterm) {
+  void resetPidRate(void) {
+    PrevErrorRateRoll=0; PrevErrorRatePitch=0; PrevErrorRateYaw=0;
+    PrevItermRateRoll=0; PrevItermRatePitch=0; PrevItermRateYaw=0;
+  }
+
+
+  void pidRateEquation(float Error, float P , float I, float D, float PrevError, float PrevIterm) {
     float Pterm=P*Error;
     float Iterm=PrevIterm+I*(Error+PrevError)*0.004/2;
     if (Iterm > 400) Iterm=400;
@@ -439,42 +453,55 @@ float setPointRpm = 0;
     PIDReturn[1]=Error;
     PIDReturn[2]=Iterm;
   }
-  void resetPid(void) {
-    PrevErrorRateRoll=0; PrevErrorRatePitch=0; PrevErrorRateYaw=0;
-    PrevItermRateRoll=0; PrevItermRatePitch=0; PrevItermRateYaw=0;
-  }
-  void errorPid(){
+
+  void errorPidRate(){
     ErrorRateRoll=DesiredRateRoll-RateRoll;
     ErrorRatePitch=DesiredRatePitch-RatePitch;
     ErrorRateYaw=DesiredRateYaw-RateYaw;
   }
-  void loopPid(){
-    errorPid();
-    pidEquation(ErrorRateRoll, PRateRoll, IRateRoll, DRateRoll, PrevErrorRateRoll, PrevItermRateRoll);
+  void loopPidRate(){
+    errorPidRate();
+    pidRateEquation(ErrorRateRoll, PRateRoll, IRateRoll, DRateRoll, PrevErrorRateRoll, PrevItermRateRoll);
         InputRoll=PIDReturn[0];
         PrevErrorRateRoll=PIDReturn[1]; 
         PrevItermRateRoll=PIDReturn[2];
-    pidEquation(ErrorRatePitch, PRatePitch, IRatePitch, DRatePitch, PrevErrorRatePitch, PrevItermRatePitch);
+    pidRateEquation(ErrorRatePitch, PRatePitch, IRatePitch, DRatePitch, PrevErrorRatePitch, PrevItermRatePitch);
         InputPitch=PIDReturn[0]; 
         PrevErrorRatePitch=PIDReturn[1]; 
         PrevItermRatePitch=PIDReturn[2];
-    pidEquation(ErrorRateYaw, PRateYaw, IRateYaw, DRateYaw, PrevErrorRateYaw, PrevItermRateYaw);
+    pidRateEquation(ErrorRateYaw, PRateYaw, IRateYaw, DRateYaw, PrevErrorRateYaw, PrevItermRateYaw);
         InputYaw=PIDReturn[0]; 
         PrevErrorRateYaw=PIDReturn[1]; 
         PrevItermRateYaw=PIDReturn[2];
 
-    if (InputThrottle > 1800) InputThrottle = 1800;
-    MotorInput1= 1.024*(InputThrottle-InputRoll-InputPitch-InputYaw);
-    MotorInput2= 1.024*(InputThrottle-InputRoll+InputPitch+InputYaw);
-    MotorInput3= 1.024*(InputThrottle+InputRoll+InputPitch-InputYaw);
-    MotorInput4= 1.024*(InputThrottle+InputRoll-InputPitch+InputYaw);
+    InputThrottle = input_throttle;
 
-    if (MotorInput1 > 2000)MotorInput1 = 1999;
-    if (MotorInput2 > 2000)MotorInput2 = 1999; 
-    if (MotorInput3 > 2000)MotorInput3 = 1999; 
-    if (MotorInput4 > 2000)MotorInput4 = 1999;
+    if (InputThrottle > 1500) InputThrottle = 1500;
+   
 
-    int ThrottleIdle=1060;
+
+    // + configuration
+    /*      M1
+            |
+            |
+      M4--------- M2
+            |
+            |
+            M3
+    */
+
+    MotorInput1= 1.024*(InputThrottle-InputPitch);
+    MotorInput2= 1.024*(InputThrottle-InputRoll);
+    MotorInput3= 1.024*(InputThrottle+InputPitch);
+    MotorInput4= 1.024*(InputThrottle+InputRoll);
+
+    int MaxMotorInput=1700;
+    if (MotorInput1 > MaxMotorInput)MotorInput1 = MaxMotorInput;
+    if (MotorInput2 > MaxMotorInput)MotorInput2 = MaxMotorInput; 
+    if (MotorInput3 > MaxMotorInput)MotorInput3 = MaxMotorInput; 
+    if (MotorInput4 > MaxMotorInput)MotorInput4 = MaxMotorInput;
+
+    int ThrottleIdle=1100;
     if (MotorInput1 < ThrottleIdle) MotorInput1 =  ThrottleIdle;
     if (MotorInput2 < ThrottleIdle) MotorInput2 =  ThrottleIdle;
     if (MotorInput3 < ThrottleIdle) MotorInput3 =  ThrottleIdle;
@@ -486,9 +513,10 @@ float setPointRpm = 0;
       MotorInput2=ThrottleCutOff;
       MotorInput3=ThrottleCutOff; 
       MotorInput4=ThrottleCutOff;
-      resetPid();
+      resetPidRate();
     }
-    #ifdef ENABLE_PID_PRINT
+    
+    #ifdef ENABLE_PID_RATE_PRINT
       Serial.print("PID| ");
       Serial.print("iT:");Serial.print(InputThrottle); Serial.print(" | ");
       Serial.print("iR:");Serial.print(InputRoll); Serial.print(" | ");
@@ -505,7 +533,327 @@ float setPointRpm = 0;
 
     #endif
   }
+
 #endif
+
+// float setPointRpm = 0;
+// float RefRateRoll = 0;
+// float RefRatePitch = 0;
+// float RefRateYaw = 0;
+float refRoll = 0;
+float refPitch = 0;
+float refYaw = 0;
+
+#ifdef ENABLE_PID_ANGLE
+
+  #ifdef ENABLE_PID_ANGLE_ONLY
+    float InputThrottle = 1000, InputRoll = 0, InputPitch = 0, InputYaw = 0;
+  #endif
+
+  // Supervisory Control
+  float DesiredRoll, DesiredPitch, DesiredYaw;
+  float ErrorRoll, ErrorPitch, ErrorYaw;
+  float PrevErrorRoll, PrevErrorPitch, PrevErrorYaw;
+  float PrevItermRoll, PrevItermPitch, PrevItermYaw;
+  float PIDAngleReturn[]={0, 0, 0};
+  float PRoll=1 ; float PPitch=0; 
+  float IRoll=2; float IPitch=0; 
+  float DRoll=0 ; float DPitch=0; 
+
+  float PYaw=0; float IYaw= 0; float DYaw=0;
+  // float MotorInput1, MotorInput2, MotorInput3, MotorInput4;
+  // SetPoint Controller PID
+  // float ManualThrottle = input_throttle;
+  float ManualRoll = refRoll;               // deg
+  float ManualPitch = refPitch;              // deg
+  float ManualYaw = refYaw;                // deg
+
+  void initPidAngle(){
+    // DesiredRateRoll=0.15*(ReceiverValue[0]-1500);
+    DesiredRoll=ManualRoll;
+    // DesiredRatePitch=0.15*(ReceiverValue[1]-1500);
+    DesiredPitch=ManualPitch;
+    // InputThrottle=ReceiverValue[2];
+    // InputThrottle=ManualThrottle;
+    // DesiredRateYaw=0.15*(ReceiverValue[3]-1500);
+    DesiredYaw=ManualYaw;
+  }
+
+   void pidAngleEquation(float Error, float P , float I, float D, float PrevError, float PrevIterm) {
+      float Pterm=P*Error;
+      float Iterm=PrevIterm+I*(Error+PrevError)*0.01/2;
+      if (Iterm > 400) Iterm=400;
+      else if (Iterm <-400) Iterm=-400;
+      float Dterm=D*(Error-PrevError)/0.004;
+      float PIDOutput= Pterm+Iterm+Dterm;
+      if (PIDOutput>300) PIDOutput=300;
+      else if (PIDOutput <-300) PIDOutput=-300;
+      PIDAngleReturn[0]=PIDOutput;
+      PIDAngleReturn[1]=Error;
+      PIDAngleReturn[2]=Iterm;
+  }
+
+  void resetPidAngle(void) {
+    PrevErrorRoll=0; PrevErrorPitch=0; PrevErrorYaw=0;
+    PrevItermRoll=0; PrevItermPitch=0; PrevItermYaw=0;
+  }
+
+  void errorPidAngle(){
+    ErrorRoll=DesiredRoll-Roll;
+    ErrorPitch=DesiredPitch-Pitch;
+    ErrorYaw=DesiredYaw-Yaw;
+  }
+
+  #ifdef ENABLE_PID_ANGLE_ONLY
+
+  void loopPidAngle(){
+    errorPidAngle();
+    pidAngleEquation(ErrorRoll, PRoll, IRoll, DRoll, PrevErrorRoll, PrevItermRoll);
+        InputRoll=PIDAngleReturn[0];
+        PrevErrorRoll=PIDAngleReturn[1]; 
+        PrevItermRoll=PIDAngleReturn[2];
+    pidAngleEquation(ErrorPitch, PPitch, IPitch, DPitch, PrevErrorPitch, PrevItermPitch);
+        InputPitch=PIDAngleReturn[0]; 
+        PrevErrorPitch=PIDAngleReturn[1]; 
+        PrevItermPitch=PIDAngleReturn[2];
+    pidAngleEquation(ErrorYaw, PYaw, IYaw, DYaw, PrevErrorYaw, PrevItermYaw);
+        InputYaw=PIDAngleReturn[0]; 
+        PrevErrorYaw=PIDAngleReturn[1]; 
+        PrevItermYaw=PIDAngleReturn[2];
+
+    InputThrottle = input_throttle;
+
+    if (InputThrottle > 1500) InputThrottle = 1500;
+    if (InputRoll > 200) InputRoll = 200;
+    else if (InputRoll < -200) InputRoll = -200;
+    
+    if (InputPitch > 200) InputPitch = 200;
+    else if (InputPitch < -200) InputPitch = 200;
+
+    if (InputYaw > 200) InputYaw = 200;
+    else if (InputPitch < -200) InputPitch = 200;
+    
+    // + configuration
+    /*      M1
+            |
+            |
+      M4--------- M2
+            |
+            |
+            M3
+    */
+
+    MotorInput1= 1.024*(InputThrottle-InputPitch);
+    MotorInput2= 1.024*(InputThrottle-InputRoll);
+    MotorInput3= 1.024*(InputThrottle+InputPitch);
+    MotorInput4= 1.024*(InputThrottle+InputRoll);
+
+    int MaxMotorInput=1700;
+    if (MotorInput1 > MaxMotorInput) MotorInput1 = MaxMotorInput;
+    if (MotorInput2 > MaxMotorInput) MotorInput2 = MaxMotorInput; 
+    if (MotorInput3 > MaxMotorInput) MotorInput3 = MaxMotorInput; 
+    if (MotorInput4 > MaxMotorInput) MotorInput4 = MaxMotorInput;
+
+    int ThrottleIdle=1100;
+    if (MotorInput1 < ThrottleIdle) MotorInput1 =  ThrottleIdle;
+    if (MotorInput2 < ThrottleIdle) MotorInput2 =  ThrottleIdle;
+    if (MotorInput3 < ThrottleIdle) MotorInput3 =  ThrottleIdle;
+    if (MotorInput4 < ThrottleIdle) MotorInput4 =  ThrottleIdle;
+
+    int ThrottleCutOff=1000;
+    if (InputThrottle<1050) {
+      MotorInput1=ThrottleCutOff; 
+      MotorInput2=ThrottleCutOff;
+      MotorInput3=ThrottleCutOff; 
+      MotorInput4=ThrottleCutOff;
+      resetPidAngle();
+    }
+
+
+    #ifdef ENABLE_PID_ANGLE_PRINT
+    Serial.print("PIDAngle| ");
+    Serial.print("iT:");Serial.print(InputThrottle); Serial.print(" | ");
+    Serial.print("rR:");Serial.print(InputRoll); Serial.print(" | ");
+    Serial.print("rP:");Serial.print(InputPitch); Serial.print(" | ");
+    Serial.print("rY:");Serial.println(InputYaw);
+    
+    Serial.print("MotorPID| ");
+    Serial.print("M1P:");Serial.print(MotorInput1); Serial.print(" | ");
+    Serial.print("M2P:");Serial.print(MotorInput2); Serial.print(" | ");
+    Serial.print("M3P:");Serial.print(MotorInput3); Serial.print(" | ");
+    Serial.print("M4P:");Serial.print(MotorInput4); Serial.print(" | ");
+    Serial.print("M5P:");Serial.print(MotorInput5); Serial.print(" | ");
+    Serial.print("M6P:");Serial.println(MotorInput6);
+    #endif
+  }
+
+  #elif
+  void loopPidAngle(){
+    errorPidAngle();
+    pidAngleEquation(ErrorRoll, PRoll, IRoll, DRoll, PrevErrorRoll, PrevItermRoll);
+        RefRateRoll=PIDAngleReturn[0];
+        PrevErrorRoll=PIDAngleReturn[1]; 
+        PrevItermRoll=PIDAngleReturn[2];
+    pidAngleEquation(ErrorPitch, PPitch, IPitch, DPitch, PrevErrorPitch, PrevItermPitch);
+        RefRatePitch=PIDAngleReturn[0]; 
+        PrevErrorPitch=PIDAngleReturn[1]; 
+        PrevItermPitch=PIDAngleReturn[2];
+    pidAngleEquation(ErrorYaw, PYaw, IYaw, DYaw, PrevErrorYaw, PrevItermYaw);
+        RefRateYaw=PIDAngleReturn[0]; 
+        PrevErrorYaw=PIDAngleReturn[1]; 
+        PrevItermYaw=PIDAngleReturn[2];
+
+    #ifdef ENABLE_PID_ANGLE_PRINT
+    Serial.print("PIDAngle| ");
+    // Serial.print("iT:");Serial.print(InputThrottle); Serial.print(" | ");
+    Serial.print("rR:");Serial.print(RefRateRoll); Serial.print(" | ");
+    Serial.print("rP:");Serial.print(RefRatePitch); Serial.print(" | ");
+    Serial.print("rY:");Serial.println(RefRateYaw);
+    
+    // Serial.print("MotorPID| ");
+    // Serial.print("M1P:");Serial.print(MotorInput1); Serial.print(" | ");
+    // Serial.print("M2P:");Serial.print(MotorInput2); Serial.print(" | ");
+    // Serial.print("M3P:");Serial.print(MotorInput3); Serial.print(" | ");
+    // Serial.print("M4P:");Serial.print(MotorInput4); Serial.print(" | ");
+    // Serial.print("M5P:");Serial.print(MotorInput5); Serial.print(" | ");
+    // Serial.print("M6P:");Serial.println(MotorInput6);
+  #endif
+  }
+  #endif
+  
+  
+  
+  
+  
+#endif
+
+// #ifdef ENABLE_PID_ANGLE_ONLY
+//   // Supervisory Control
+//   float DesiredRoll, DesiredPitch, DesiredYaw;
+//   float ErrorRoll, ErrorPitch, ErrorYaw;
+//   float PrevErrorRoll, PrevErrorPitch, PrevErrorYaw;
+//   float PrevItermRoll, PrevItermPitch, PrevItermYaw;
+//   float PIDAngleReturn[]={0, 0, 0};
+//   float PRoll=2 ; float PPitch=PRoll; 
+//   float IRoll=0; float IPitch=IRateRoll; 
+//   float DRoll=0 ; float DPitch=DRoll; 
+
+//   float PYaw=0; float IYaw= 0; float DYaw=0;
+//   // float MotorInput1, MotorInput2, MotorInput3, MotorInput4;
+//   // SetPoint Controller PID
+//   // float ManualThrottle = input_throttle;
+//   float ManualRoll = refRoll;               // deg
+//   float ManualPitch = refPitch;              // deg
+//   float ManualYaw = refYaw;                // deg
+
+//   void initPidAngle(){
+//     // DesiredRateRoll=0.15*(ReceiverValue[0]-1500);
+//     DesiredRoll=ManualRoll;
+//     // DesiredRatePitch=0.15*(ReceiverValue[1]-1500);
+//     DesiredPitch=ManualPitch;
+//     // InputThrottle=ReceiverValue[2];
+//     // InputThrottle=ManualThrottle;
+//     // DesiredRateYaw=0.15*(ReceiverValue[3]-1500);
+//     DesiredYaw=ManualYaw;
+//   }
+
+//    void pidAngleEquation(float Error, float P , float I, float D, float PrevError, float PrevIterm) {
+//       float Pterm=P*Error;
+//       float Iterm=PrevIterm+I*(Error+PrevError)*0.004/2;
+//       if (Iterm > 400) Iterm=400;
+//       else if (Iterm <-400) Iterm=-400;
+//       float Dterm=D*(Error-PrevError)/0.004;
+//       float PIDOutput= Pterm+Iterm+Dterm;
+//       if (PIDOutput>400) PIDOutput=400;
+//       else if (PIDOutput <-400) PIDOutput=-400;
+//       PIDAngleReturn[0]=PIDOutput;
+//       PIDAngleReturn[1]=Error;
+//       PIDAngleReturn[2]=Iterm;
+//   }
+
+//   void resetPidAngle(void) {
+//     PrevErrorRoll=0; PrevErrorPitch=0; PrevErrorYaw=0;
+//     PrevItermRoll=0; PrevItermPitch=0; PrevItermYaw=0;
+//   }
+
+//   void errorPidAngle(){
+//     ErrorRoll=DesiredRoll-Roll;
+//     ErrorPitch=DesiredPitch-Pitch;
+//     ErrorYaw=DesiredYaw-Yaw;
+//   }
+//   void loopPidAngle(){
+//     errorPidAngle();
+//     pidAngleEquation(ErrorRoll, PRoll, IRoll, DRoll, PrevErrorRoll, PrevItermRoll);
+//         InputRoll=PIDAngleReturn[0];
+//         PrevErrorRoll=PIDAngleReturn[1]; 
+//         PrevItermRoll=PIDAngleReturn[2];
+//     pidAngleEquation(ErrorPitch, PPitch, IPitch, DPitch, PrevErrorPitch, PrevItermPitch);
+//         InputPitch=PIDAngleReturn[0]; 
+//         PrevErrorPitch=PIDAngleReturn[1]; 
+//         PrevItermPitch=PIDAngleReturn[2];
+//     pidAngleEquation(ErrorYaw, PYaw, IYaw, DYaw, PrevErrorYaw, PrevItermYaw);
+//         InputYaw=PIDAngleReturn[0]; 
+//         PrevErrorYaw=PIDAngleReturn[1]; 
+//         PrevItermYaw=PIDAngleReturn[2];
+
+//   InputThrottle = input_throttle;
+
+//     if (InputThrottle > 1500) InputThrottle = 1500;
+
+//     // + configuration
+//     /*      M1
+//             |
+//             |
+//       M4--------- M2
+//             |
+//             |
+//             M3
+//     */
+
+//     MotorInput1= 1.024*(InputThrottle-InputPitch);
+//     MotorInput2= 1.024*(InputThrottle-InputRoll);
+//     MotorInput3= 1.024*(InputThrottle+InputPitch);
+//     MotorInput4= 1.024*(InputThrottle+InputRoll);
+
+//     int MaxMotorInput=1700;
+//     if (MotorInput1 > MaxMotorInput)MotorInput1 = MaxMotorInput;
+//     if (MotorInput2 > MaxMotorInput)MotorInput2 = MaxMotorInput; 
+//     if (MotorInput3 > MaxMotorInput)MotorInput3 = MaxMotorInput; 
+//     if (MotorInput4 > MaxMotorInput)MotorInput4 = MaxMotorInput;
+
+//     int ThrottleIdle=1100;
+//     if (MotorInput1 < ThrottleIdle) MotorInput1 =  ThrottleIdle;
+//     if (MotorInput2 < ThrottleIdle) MotorInput2 =  ThrottleIdle;
+//     if (MotorInput3 < ThrottleIdle) MotorInput3 =  ThrottleIdle;
+//     if (MotorInput4 < ThrottleIdle) MotorInput4 =  ThrottleIdle;
+
+//     int ThrottleCutOff=1000;
+//     if (InputThrottle<1050) {
+//       MotorInput1=ThrottleCutOff; 
+//       MotorInput2=ThrottleCutOff;
+//       MotorInput3=ThrottleCutOff; 
+//       MotorInput4=ThrottleCutOff;
+//       resetPidRate();
+//     }
+  
+//   #ifdef ENABLE_PID_ANGLE_PRINT
+//     Serial.print("PIDAngle| ");
+//     Serial.print("iT:");Serial.print(InputThrottle); Serial.print(" | ");
+//     Serial.print("rR:");Serial.print(RefRateRoll); Serial.print(" | ");
+//     Serial.print("rP:");Serial.print(RefRatePitch); Serial.print(" | ");
+//     Serial.print("rY:");Serial.println(RefRateYaw);
+    
+//     Serial.print("MotorPID| ");
+//     Serial.print("M1P:");Serial.print(MotorInput1); Serial.print(" | ");
+//     Serial.print("M2P:");Serial.print(MotorInput2); Serial.print(" | ");
+//     Serial.print("M3P:");Serial.print(MotorInput3); Serial.print(" | ");
+//     Serial.print("M4P:");Serial.print(MotorInput4); Serial.print(" | ");
+//     Serial.print("M5P:");Serial.print(MotorInput5); Serial.print(" | ");
+//     Serial.print("M6P:");Serial.println(MotorInput6);
+//   #endif  
+
+// #endif
+
 
 // 7. RTC BuiltIn
 uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENABLE_SD_CARD
@@ -801,39 +1149,20 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
 #endif
 
 #ifdef ENABLE_CUSTOM
-  #include <IntervalTimer.h>
-  IntervalTimer rpmTimer;
-  volatile unsigned long lastPulseTime = 0;
-  
-  
-  FASTRUN void pulseHandler() {
-  unsigned long currentTime = micros(); // Current time in microseconds
-  pulseInterval = currentTime - lastPulseTime; // Time between pulses
-  lastPulseTime = currentTime;
-  }
+// DSHOT 600 with Cyclone ESC
+#include <Arduino.h>
 
-  void calculateRPM() {
-  if (pulseInterval > 0 && ((unsigned long)micros()) - lastPulseTime <= 20000) {
-    float frequency = 1000000.0  / pulseInterval; // Convert µs interval to frequency (Hz)
-    rpm = (frequency * 60.0) / 7;
+#include "DShot.h"
 
-    // pada fungsi interupt, hindari penggunaan serial print
-    // Serial.print("RPM: ");
-    // Serial.println(rpm);
-    // Serial.print(" | Interval: ");
-    // Serial.print(pulseInterval);
-  } else if (((unsigned long)micros()) - lastPulseTime > 20000) {
-    // Serial.println("No pulses detected");
-    rpm = 0;
-  }
-  }
+constexpr uint16_t LOOP_HZ = 2000;
 
-  void printRpm(){
-    Serial.print("RPM: ");
-    Serial.print(rpm);
-    Serial.print(" | Interval: ");
-    Serial.println(pulseInterval);
-  } 
+DShot motor0(&Serial2, DShotType::DShot600); // Teensy4.X Pin 8
+DShot motor1(&Serial3, DShotType::DShot600); // Teensy4.X Pin 14
+DShot motor2(&Serial4, DShotType::DShot600); // Teensy4.X Pin 17
+DShot motor3(&Serial5, DShotType::DShot600); // Teensy4.X Pin 20
+
+
+ 
 #endif
 
 // 9. Receiver
@@ -1043,6 +1372,20 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
                 if (motor4_throttle > 999 && motor4_throttle < 2001) {
                   Serial.print("Motor 4 Throttle set to: "); 
                   Serial.println(motor4_throttle);
+                } else {
+                  Serial.println("Invalid input. Please enter a valid number.");
+                }
+                // Serial.print("Motor 4 Throttle set to: "); Serial.println(motor4_throttle);
+                // runMotor4(motor4_throttle); // Fungsi untuk motor 4
+                break;
+            case 30:
+                Serial.println("\nReference Roll: \n");
+                // Serial.println("Enter value (e.g., 1400):");
+                while (!Serial.available());
+                refRoll = Serial.parseInt();
+                if (refRoll > -20 && refRoll < 20) {
+                  Serial.print("Ref ROll SET TO: "); 
+                  Serial.println(refRoll);
                 } else {
                   Serial.println("Invalid input. Please enter a valid number.");
                 }
@@ -1278,8 +1621,8 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
   }
   void logSerial1(){
     char bufferSerial1[512];
-    int lenSerial1 = snprintf(bufferSerial1, sizeof(bufferSerial1), "%lu,%f,%f,%f,%f,%f\n", 
-                       cMillis,input_throttle,MotorInput1, MotorInput2, MotorInput3, MotorInput4);
+    int lenSerial1 = snprintf(bufferSerial1, sizeof(bufferSerial1), "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", 
+                       cMillis,input_throttle,MotorInput1, MotorInput2, MotorInput3, MotorInput4, Roll, Pitch, Yaw, RateRoll,RatePitch,RateYaw, refRoll, RefRateRoll,InputRoll, refPitch, RefRatePitch,InputPitch);
     SerialUSB1.write(bufferSerial1, lenSerial1); // Write the entire buffer at once
   }
 #endif
@@ -1322,9 +1665,13 @@ void setup(){
     // available @ runMotor(m1,m2,m3,m4,m5,m6);
   #endif
 
+  #ifdef ENABLE_PID_ANGLE
+    initPidAngle();
+    // available @ loopPidAngle();
+  #endif
   #ifdef ENABLE_PID_RATE
-    initPid();
-    // available @ loopPid();
+    initPidRate();
+    // available @ loopPidRate();
   #endif
 
 
@@ -1365,9 +1712,7 @@ void setup(){
   #endif
 
   #ifdef ENABLE_CUSTOM
-    pinMode(8, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(8), pulseHandler, RISING); // Detect rising edges
-    rpmTimer.begin(calculateRPM, 10000); // Call calculateRPM every 100ms
+    
   #endif  
 
   #ifdef ENABLE_LED
@@ -1388,9 +1733,6 @@ void loop(){
   // 500Hz
   if (cMicros - pM500Hz >= interval500Hz){
     // Fuction & Command
-    #ifdef ENABLE_PID_RATE
-      loopPid();
-    #endif
     #ifdef ENABLE_MOTOR
       #ifdef ENABLE_MOTOR_MANUAL_ALL
         MotorInput1 = input_throttle;
@@ -1439,6 +1781,13 @@ void loop(){
   if (cMillis - pM100Hz >= interval100Hz){
     
     // Fuction & Command
+    #ifdef ENABLE_PID_ANGLE
+      loopPidAngle();
+    #endif
+    #ifdef ENABLE_PID_RATE
+      loopPidRate();
+    #endif
+
     #ifdef ENABLE_USER_INPUT
       userInput();
     #endif
@@ -1457,7 +1806,7 @@ void loop(){
     #endif
 
     #ifdef ENABLE_CUSTOM
-      printRpm();
+      
     #endif
     
     #ifdef ENABLE_RPM_1
