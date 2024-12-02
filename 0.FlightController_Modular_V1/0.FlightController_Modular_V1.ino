@@ -43,6 +43,7 @@
 // #define ENABLE_PID_RATE              // 6  // DURUNG
 #define ENABLE_PID_ANGLE
 #define ENABLE_PID_ANGLE_ONLY
+#define ENABLE_FUZZY
 // #define ENABLE_SD_CARD          // 7  
 // #define ENABLE_RPM_1            // 8.1  // Durung
 // #define ENABLE_RPM_2            // 8.2
