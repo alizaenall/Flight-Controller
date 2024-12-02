@@ -19,13 +19,18 @@
   //16 SP_RPM: +1000
   //17 SP_RPM: -1000
   //30 RefRoll : ... Input...
-
+  //31 Kp
+  //32 Ki
+  //25 PAngleRoll
+  //26 IAnglePitch
+  //27 DAngleRoll
+  //
 */
 
 
 
 // Enable or disable modules by commenting/uncommenting
-// #define ENABLE_CUSTOM
+#define ENABLE_CUSTOM
 
 #define ENABLE_MOTOR             // 5        // DEFAULT QUAD
 // #define ENABLE_MOTOR_HEXACOPTER             // UNCOMMENT FOR HEXACOPTER
@@ -41,9 +46,9 @@
 // #define ENABLE_LIDAR            // 3  
 // #define ENABLE_VOLTAGE_CURRENT  // 4  
 // #define ENABLE_PID_RATE              // 6  // DURUNG
-#define ENABLE_PID_ANGLE
-#define ENABLE_PID_ANGLE_ONLY
-#define ENABLE_FUZZY
+// #define ENABLE_PID_ANGLE
+// #define ENABLE_PID_ANGLE_ONLY
+// #define ENABLE_FUZZY_ROLL
 // #define ENABLE_SD_CARD          // 7  
 // #define ENABLE_RPM_1            // 8.1  // Durung
 // #define ENABLE_RPM_2            // 8.2
@@ -59,10 +64,12 @@
   // #define ENABLE_VOLTAGE_CURRENT_PRINT
   // #define ENABLE_MOTOR_PRINT
   // #define ENABLE_PID_RATE_PRINT
-  #define ENABLE_PID_ANGLE_PRINT   
+  // #define ENABLE_PID_ANGLE_PRINT   
   // #define ENABLE_RPM_1_PRINT             // DURUNG
   // #define ENABLE_RTC_PRINT
   // #define ENABLE_RECEIVER_PRINT  // DURUNG
+  #define ENABLE_CUSTOM_PRINT
+
 
 #define ENABLE_INTERVAL  // WAJIB
     // #define ENABLE_MONITORING_1HZ
@@ -82,6 +89,7 @@
           // #define ENABLE_MONITORING_MOTOR_10HZ
           // #define ENABLE_MONITORING_PID_10HZ
           // #define ENABLE_MONITORING_RPM_10HZ
+          // #define ENABLE_MONITORING_FUZZY_ROLL_10HZ //Masih Salah
           // #define ENABLE_MONITORING_RTC_10HZ
     // #define ENABLE_MONITORING_DYNAMIC              // BELUM BISA
   
@@ -161,6 +169,9 @@
   float RateRoll,RatePitch,RateYaw;     // Gyro rate
   float Roll, Pitch, Yaw;               // Euler angle
   float RateCalibrationPitch, RateCalibrationRoll, RateCalibrationYaw;
+  float AngleCalibrationPitch, AngleCalibrationRoll, AngleCalibrationYaw;
+  float RateRollCal = 0, RatePitchCal = 0, RateYawCal = 0;
+  float RollCal = 0, PitchCal = 0, YawCal = 0;
   int RateCalibrationNumber;
   
   //----SETUP BNO055
@@ -178,11 +189,27 @@
       RateCalibrationRoll+=RateRoll;
       RateCalibrationPitch+=RatePitch;
       RateCalibrationYaw+=RateYaw;
+      AngleCalibrationPitch+=Pitch;
+      AngleCalibrationRoll+=Roll;
+      AngleCalibrationYaw+=Yaw;
+
       delay(1);
     }
     RateCalibrationRoll/=2000;
     RateCalibrationPitch/=2000;
     RateCalibrationYaw/=2000;
+    
+    AngleCalibrationPitch/=2000;
+    AngleCalibrationRoll/=2000;
+    AngleCalibrationYaw/=2000;
+
+    RateRollCal = RateCalibrationRoll; 
+    RatePitchCal = RateCalibrationPitch; 
+    RateYawCal = RateCalibrationYaw;
+    RollCal = AngleCalibrationRoll; 
+    PitchCal = AngleCalibrationPitch; 
+    YawCal = AngleCalibrationYaw;
+
     Serial.println("CalibrationDone");
   }
 
@@ -190,12 +217,12 @@
       mpu.readAngularVelocity();  /* read Angular Velocity */
       mpu.readEuler();  /* read euler angle */
       // Variable IMU
-      RateRoll = mpu.GyrData.x;    // Roll Rate  (deg/s)
-      RatePitch = mpu.GyrData.y;   // Pitch Rate (deg/s)
-      RateYaw = mpu.GyrData.z;     // Yaw Rate   (deg/s)
-      Roll = mpu.EulerAngles.z;;     // Roll      (deg)
-      Pitch = mpu.EulerAngles.y;    // Pitch     (deg)
-      Yaw = mpu.EulerAngles.x;      // Pitch     (deg)
+      RateRoll = mpu.GyrData.x - RateRollCal;     // Roll Rate  (deg/s)
+      RatePitch = mpu.GyrData.y - RatePitchCal;   // Pitch Rate (deg/s)
+      RateYaw = mpu.GyrData.z - RateYawCal;       // Yaw Rate   (deg/s)
+      Roll = mpu.EulerAngles.z - RollCal;         // Roll       (deg)
+      Pitch = mpu.EulerAngles.y - PitchCal;       // Pitch      (deg)
+      Yaw = mpu.EulerAngles.x - YawCal;           // Yaw        (deg)
     
       #ifdef ENABLE_IMU_PRINT
         Serial.print("IMU| ");
@@ -557,9 +584,9 @@ float refYaw = 0;
   float PrevErrorRoll, PrevErrorPitch, PrevErrorYaw;
   float PrevItermRoll, PrevItermPitch, PrevItermYaw;
   float PIDAngleReturn[]={0, 0, 0};
-  float PRoll=1 ; float PPitch=0; 
-  float IRoll=2; float IPitch=0; 
-  float DRoll=0 ; float DPitch=0; 
+  float PAngleRoll=1 ; float PAnglePitch=0; 
+  float IAnglePitch=2; float IAnglePitch=0; 
+  float DAngleRoll=0 ; float DAnglePitch=0; 
 
   float PYaw=0; float IYaw= 0; float DYaw=0;
   // float MotorInput1, MotorInput2, MotorInput3, MotorInput4;
@@ -609,11 +636,11 @@ float refYaw = 0;
 
   void loopPidAngle(){
     errorPidAngle();
-    pidAngleEquation(ErrorRoll, PRoll, IRoll, DRoll, PrevErrorRoll, PrevItermRoll);
+    pidAngleEquation(ErrorRoll, PAngleRoll, IAnglePitch, DAngleRoll, PrevErrorRoll, PrevItermRoll);
         InputRoll=PIDAngleReturn[0];
         PrevErrorRoll=PIDAngleReturn[1]; 
         PrevItermRoll=PIDAngleReturn[2];
-    pidAngleEquation(ErrorPitch, PPitch, IPitch, DPitch, PrevErrorPitch, PrevItermPitch);
+    pidAngleEquation(ErrorPitch, PAnglePitch, IAnglePitch, DAnglePitch, PrevErrorPitch, PrevItermPitch);
         InputPitch=PIDAngleReturn[0]; 
         PrevErrorPitch=PIDAngleReturn[1]; 
         PrevItermPitch=PIDAngleReturn[2];
@@ -691,11 +718,11 @@ float refYaw = 0;
   #elif
   void loopPidAngle(){
     errorPidAngle();
-    pidAngleEquation(ErrorRoll, PRoll, IRoll, DRoll, PrevErrorRoll, PrevItermRoll);
+    pidAngleEquation(ErrorRoll, PAngleRoll, IAnglePitch, DAngleRoll, PrevErrorRoll, PrevItermRoll);
         RefRateRoll=PIDAngleReturn[0];
         PrevErrorRoll=PIDAngleReturn[1]; 
         PrevItermRoll=PIDAngleReturn[2];
-    pidAngleEquation(ErrorPitch, PPitch, IPitch, DPitch, PrevErrorPitch, PrevItermPitch);
+    pidAngleEquation(ErrorPitch, PAnglePitch, IAnglePitch, DAnglePitch, PrevErrorPitch, PrevItermPitch);
         RefRatePitch=PIDAngleReturn[0]; 
         PrevErrorPitch=PIDAngleReturn[1]; 
         PrevItermPitch=PIDAngleReturn[2];
@@ -735,9 +762,9 @@ float refYaw = 0;
 //   float PrevErrorRoll, PrevErrorPitch, PrevErrorYaw;
 //   float PrevItermRoll, PrevItermPitch, PrevItermYaw;
 //   float PIDAngleReturn[]={0, 0, 0};
-//   float PRoll=2 ; float PPitch=PRoll; 
-//   float IRoll=0; float IPitch=IRateRoll; 
-//   float DRoll=0 ; float DPitch=DRoll; 
+//   float PAngleRoll=2 ; float PAnglePitch=PAngleRoll; 
+//   float IAnglePitch=0; float IAnglePitch=IRateRoll; 
+//   float DAngleRoll=0 ; float DAnglePitch=DAngleRoll; 
 
 //   float PYaw=0; float IYaw= 0; float DYaw=0;
 //   // float MotorInput1, MotorInput2, MotorInput3, MotorInput4;
@@ -784,11 +811,11 @@ float refYaw = 0;
 //   }
 //   void loopPidAngle(){
 //     errorPidAngle();
-//     pidAngleEquation(ErrorRoll, PRoll, IRoll, DRoll, PrevErrorRoll, PrevItermRoll);
+//     pidAngleEquation(ErrorRoll, PAngleRoll, IAnglePitch, DAngleRoll, PrevErrorRoll, PrevItermRoll);
 //         InputRoll=PIDAngleReturn[0];
 //         PrevErrorRoll=PIDAngleReturn[1]; 
 //         PrevItermRoll=PIDAngleReturn[2];
-//     pidAngleEquation(ErrorPitch, PPitch, IPitch, DPitch, PrevErrorPitch, PrevItermPitch);
+//     pidAngleEquation(ErrorPitch, PAnglePitch, IAnglePitch, DAnglePitch, PrevErrorPitch, PrevItermPitch);
 //         InputPitch=PIDAngleReturn[0]; 
 //         PrevErrorPitch=PIDAngleReturn[1]; 
 //         PrevItermPitch=PIDAngleReturn[2];
@@ -855,6 +882,309 @@ float refYaw = 0;
 
 // #endif
 
+#ifdef ENABLE_FUZZY_ROLL
+  #include <Fuzzy.h>
+  
+  //Fuzzy Initial
+  Fuzzy *fuzzy = new Fuzzy();
+
+  //INPUT Sudut Roll
+  FuzzySet *RollVeryLow = new FuzzySet(-100, -100, -40, -13.33);
+  FuzzySet *RollLow = new FuzzySet(-40, -13.33, -13.33, 4.668);
+  FuzzySet *RollNormal = new FuzzySet(-10, 0, 0, 10);
+  FuzzySet *RollHigh = new FuzzySet(-4.668, 13.33, 13.33, 40);
+  FuzzySet *RollVeryHigh = new FuzzySet(13.33, 40, 100, 100);
+
+  //INPUT Kecepatan R
+  FuzzySet *SpeedRVeryLow = new FuzzySet(-500, -500, -150, -49.98);
+  FuzzySet *SpeedRLow = new FuzzySet(-150, -49.98, -49.98, 17.51);
+  FuzzySet *SpeedRNormal = new FuzzySet(-37.5, 0, 0, 37.5);
+  FuzzySet *SpeedRHigh = new FuzzySet(-17.51, 49.98, 49.98, 150);
+  FuzzySet *SpeedRVeryHigh = new FuzzySet(49.98, 150, 500, 500);
+
+  //OUTPUT PWM
+  FuzzySet *RPWMVeryLow = new FuzzySet(-1.5, -1.5, -1, -0.5);
+  FuzzySet *RPWMLow = new FuzzySet(-1, -0.5, -0.5, 0);
+  FuzzySet *RPWMNormal = new FuzzySet(-0.5, 0, 0, 0.5);
+  FuzzySet *RPWMHigh = new FuzzySet(0, 0.5, 0.5, 1);
+  FuzzySet *RPWMVeryHigh = new FuzzySet(0.5, 1, 1.5, 1.5);
+  // FuzzySet *RPWMVeryLow = new FuzzySet(-30, -30, -20, -10);
+  // FuzzySet *RPWMLow = new FuzzySet(-20, -10, -10, 0);
+  // FuzzySet *RPWMNormal = new FuzzySet(-10, 0, 0, 10);
+  // FuzzySet *RPWMHigh = new FuzzySet(0, 10, 10, 20);
+  // FuzzySet *RPWMVeryHigh = new FuzzySet(10, 20, 30, 30);
+
+  float Throttle_Roll, InputRoll, prev_InputRoll, InputThrottle;
+  bool StartFuzzyRoll = 0;
+
+  void initFuzzyRoll(){
+    refRoll = 0;
+    Throttle_Roll = 0;
+
+    // FuzzyInput Jarak Z
+    FuzzyInput *RollFuzzy = new FuzzyInput(1);
+    RollFuzzy->addFuzzySet(RollVeryLow);
+    RollFuzzy->addFuzzySet(RollLow);
+    RollFuzzy->addFuzzySet(RollNormal);
+    RollFuzzy->addFuzzySet(RollHigh);
+    RollFuzzy->addFuzzySet(RollVeryHigh);
+    fuzzy->addFuzzyInput(RollFuzzy);
+
+    // FuzzyInput Kecepatan R
+    FuzzyInput *SpeedRFuzzy = new FuzzyInput(2);
+    SpeedRFuzzy->addFuzzySet(SpeedRVeryLow);
+    SpeedRFuzzy->addFuzzySet(SpeedRLow);
+    SpeedRFuzzy->addFuzzySet(SpeedRNormal);
+    SpeedRFuzzy->addFuzzySet(SpeedRHigh);
+    SpeedRFuzzy->addFuzzySet(SpeedRVeryHigh);
+    fuzzy->addFuzzyInput(SpeedRFuzzy);
+
+    //FuzzyOutput PWM
+    FuzzyOutput *RPWM = new FuzzyOutput(1);
+    RPWM->addFuzzySet(RPWMVeryLow);
+    RPWM->addFuzzySet(RPWMLow);
+    RPWM->addFuzzySet(RPWMNormal);
+    RPWM->addFuzzySet(RPWMHigh);
+    RPWM->addFuzzySet(RPWMVeryHigh);
+    fuzzy->addFuzzyOutput(RPWM);
+
+    //Building FuzzyRule
+    //--Roll Very Low
+    FuzzyRuleAntecedent* ifRollVeryLowAndSpeedRVeryLow = new FuzzyRuleAntecedent();
+    ifRollVeryLowAndSpeedRVeryLow->joinWithAND(RollVeryLow, SpeedRVeryLow);
+    FuzzyRuleConsequent *thenRPWMVeryHigh = new FuzzyRuleConsequent(); 
+    thenRPWMVeryHigh->addOutput(RPWMVeryHigh); 
+    FuzzyRule *rule1 = new FuzzyRule(1, ifRollVeryLowAndSpeedRVeryLow, thenRPWMVeryHigh); 
+    fuzzy->addFuzzyRule(rule1);
+
+    FuzzyRuleAntecedent* ifRollVeryLowAndSpeedRLow = new FuzzyRuleAntecedent();
+    ifRollVeryLowAndSpeedRLow->joinWithAND(RollVeryLow, SpeedRLow);
+    // FuzzyRuleConsequent *thenRPWMVeryHigh = new FuzzyRuleConsequent(); 
+    // thenRPWMVeryHigh->addOutput(RPWMVeryHigh); 
+    FuzzyRule *rule2 = new FuzzyRule(2, ifRollVeryLowAndSpeedRLow, thenRPWMVeryHigh); 
+    fuzzy->addFuzzyRule(rule2);
+
+    FuzzyRuleAntecedent* ifRollVeryLowAndSpeedRNormal = new FuzzyRuleAntecedent();
+    ifRollVeryLowAndSpeedRNormal->joinWithAND(RollVeryLow, SpeedRNormal);
+    // FuzzyRuleConsequent *thenRPWMVeryHigh = new FuzzyRuleConsequent(); 
+    // thenRPWMVeryHigh->addOutput(RPWMVeryHigh); 
+    FuzzyRule *rule3 = new FuzzyRule(3, ifRollVeryLowAndSpeedRNormal, thenRPWMVeryHigh); 
+    fuzzy->addFuzzyRule(rule3);
+
+    FuzzyRuleAntecedent* ifRollVeryLowAndSpeedRHigh = new FuzzyRuleAntecedent();
+    ifRollVeryLowAndSpeedRHigh->joinWithAND(RollVeryLow, SpeedRHigh);
+    FuzzyRuleConsequent *thenRPWMHigh = new FuzzyRuleConsequent(); 
+    thenRPWMHigh->addOutput(RPWMHigh); 
+    FuzzyRule *rule4 = new FuzzyRule(4, ifRollVeryLowAndSpeedRHigh, thenRPWMHigh); 
+    fuzzy->addFuzzyRule(rule4);
+    
+    FuzzyRuleAntecedent* ifRollVeryLowAndSpeedRVeryHigh = new FuzzyRuleAntecedent();
+    ifRollVeryLowAndSpeedRVeryHigh->joinWithAND(RollVeryLow, SpeedRVeryHigh);
+    FuzzyRuleConsequent *thenRPWMNormal = new FuzzyRuleConsequent(); 
+    thenRPWMNormal->addOutput(RPWMNormal); 
+    FuzzyRule *rule5 = new FuzzyRule(5, ifRollVeryLowAndSpeedRVeryHigh, thenRPWMNormal); 
+    fuzzy->addFuzzyRule(rule5);
+
+    //--Roll Low
+    FuzzyRuleAntecedent* ifRollLowAndSpeedRVeryLow = new FuzzyRuleAntecedent();
+    ifRollLowAndSpeedRVeryLow->joinWithAND(RollLow, SpeedRVeryLow);
+    // FuzzyRuleConsequent *thenRPWMVeryHigh = new FuzzyRuleConsequent(); 
+    // thenRPWMVeryHigh->addOutput(RPWMVeryHigh); 
+    FuzzyRule *rule6 = new FuzzyRule(6, ifRollLowAndSpeedRVeryLow, thenRPWMVeryHigh); 
+    fuzzy->addFuzzyRule(rule6);
+
+    FuzzyRuleAntecedent* ifRollLowAndSpeedRLow = new FuzzyRuleAntecedent();
+    ifRollLowAndSpeedRLow->joinWithAND(RollLow, SpeedRLow);
+    // FuzzyRuleConsequent *thenRPWMVeryHigh = new FuzzyRuleConsequent(); 
+    // thenRPWMVeryHigh->addOutput(RPWMVeryHigh); 
+    FuzzyRule *rule7 = new FuzzyRule(7, ifRollLowAndSpeedRLow, thenRPWMVeryHigh); 
+    fuzzy->addFuzzyRule(rule7);
+
+    FuzzyRuleAntecedent* ifRollLowAndSpeedRNormal = new FuzzyRuleAntecedent();
+    ifRollLowAndSpeedRNormal->joinWithAND(RollLow, SpeedRNormal);
+    // FuzzyRuleConsequent *thenRPWMHigh = new FuzzyRuleConsequent(); 
+    // thenRPWMHigh->addOutput(RPWMHigh); 
+    FuzzyRule *rule8 = new FuzzyRule(8, ifRollLowAndSpeedRNormal, thenRPWMHigh); 
+    fuzzy->addFuzzyRule(rule8);
+
+    FuzzyRuleAntecedent* ifRollLowAndSpeedRHigh = new FuzzyRuleAntecedent();
+    ifRollLowAndSpeedRHigh->joinWithAND(RollLow, SpeedRHigh);
+    // FuzzyRuleConsequent *thenRPWMNormal = new FuzzyRuleConsequent(); 
+    // thenRPWMNormal->addOutput(RPWMNormal); 
+    FuzzyRule *rule9 = new FuzzyRule(9, ifRollLowAndSpeedRHigh, thenRPWMNormal); 
+    fuzzy->addFuzzyRule(rule9);
+    
+    FuzzyRuleAntecedent* ifRollLowAndSpeedRVeryHigh = new FuzzyRuleAntecedent();
+    ifRollLowAndSpeedRVeryHigh->joinWithAND(RollLow, SpeedRVeryHigh);
+    FuzzyRuleConsequent *thenRPWMLow = new FuzzyRuleConsequent(); 
+    thenRPWMLow->addOutput(RPWMLow); 
+    FuzzyRule *rule10 = new FuzzyRule(10, ifRollLowAndSpeedRVeryHigh, thenRPWMLow); 
+    fuzzy->addFuzzyRule(rule10);
+
+    //--Roll Normal
+    FuzzyRuleAntecedent* ifRollNormalAndSpeedRVeryLow = new FuzzyRuleAntecedent();
+    ifRollNormalAndSpeedRVeryLow->joinWithAND(RollNormal, SpeedRVeryLow);
+    // FuzzyRuleConsequent *thenRPWMVeryHigh = new FuzzyRuleConsequent(); 
+    // thenRPWMVeryHigh->addOutput(RPWMVeryHigh); 
+    FuzzyRule *rule11 = new FuzzyRule(11, ifRollNormalAndSpeedRVeryLow, thenRPWMVeryHigh); 
+    fuzzy->addFuzzyRule(rule11);
+
+    FuzzyRuleAntecedent* ifRollNormalAndSpeedRLow = new FuzzyRuleAntecedent();
+    ifRollNormalAndSpeedRLow->joinWithAND(RollNormal, SpeedRLow);
+    // FuzzyRuleConsequent *thenRPWMVeryHigh = new FuzzyRuleConsequent(); 
+    // thenRPWMVeryHigh->addOutput(RPWMVeryHigh); 
+    FuzzyRule *rule12 = new FuzzyRule(12, ifRollNormalAndSpeedRLow, thenRPWMHigh); 
+    fuzzy->addFuzzyRule(rule12);
+
+    FuzzyRuleAntecedent* ifRollNormalAndSpeedRNormal = new FuzzyRuleAntecedent();
+    ifRollNormalAndSpeedRNormal->joinWithAND(RollNormal, SpeedRNormal);
+    // FuzzyRuleConsequent *thenRPWMVeryHigh = new FuzzyRuleConsequent(); 
+    // thenRPWMVeryHigh->addOutput(RPWMVeryHigh); 
+    FuzzyRule *rule13 = new FuzzyRule(13, ifRollNormalAndSpeedRNormal, thenRPWMNormal); 
+    fuzzy->addFuzzyRule(rule13);
+
+    FuzzyRuleAntecedent* ifRollNormalAndSpeedRHigh = new FuzzyRuleAntecedent();
+    ifRollNormalAndSpeedRHigh->joinWithAND(RollNormal, SpeedRHigh);
+    // FuzzyRuleConsequent *thenRPWMLow = new FuzzyRuleConsequent(); 
+    // thenRPWMLow->addOutput(RPWMLow);
+    FuzzyRule *rule14 = new FuzzyRule(14, ifRollNormalAndSpeedRHigh, thenRPWMLow); 
+    fuzzy->addFuzzyRule(rule14);
+
+    FuzzyRuleAntecedent* ifRollNormalAndSpeedRVeryHigh = new FuzzyRuleAntecedent();
+    ifRollNormalAndSpeedRVeryHigh->joinWithAND(RollNormal, SpeedRVeryHigh);
+    FuzzyRuleConsequent *thenRPWMVeryLow = new FuzzyRuleConsequent(); 
+    thenRPWMVeryLow->addOutput(RPWMVeryLow); 
+    FuzzyRule *rule15 = new FuzzyRule(15, ifRollNormalAndSpeedRVeryHigh, thenRPWMVeryLow); 
+    fuzzy->addFuzzyRule(rule15);
+
+    //--Roll High
+    FuzzyRuleAntecedent* ifRollHighAndSpeedRVeryLow = new FuzzyRuleAntecedent();
+    ifRollHighAndSpeedRVeryLow->joinWithAND(RollHigh, SpeedRVeryLow);
+    FuzzyRule *rule16 = new FuzzyRule(16, ifRollHighAndSpeedRVeryLow, thenRPWMHigh); 
+    fuzzy->addFuzzyRule(rule16);
+
+    FuzzyRuleAntecedent* ifRollHighAndSpeedRLow = new FuzzyRuleAntecedent();
+    ifRollHighAndSpeedRLow->joinWithAND(RollHigh, SpeedRLow);
+    FuzzyRule *rule17 = new FuzzyRule(17, ifRollHighAndSpeedRLow, thenRPWMNormal); 
+    fuzzy->addFuzzyRule(rule17);
+
+    FuzzyRuleAntecedent* ifRollHighAndSpeedRNormal = new FuzzyRuleAntecedent();
+    ifRollHighAndSpeedRNormal->joinWithAND(RollHigh, SpeedRNormal);
+    FuzzyRule *rule18 = new FuzzyRule(18, ifRollHighAndSpeedRNormal, thenRPWMLow); 
+    fuzzy->addFuzzyRule(rule18);
+
+    FuzzyRuleAntecedent* ifRollHighAndSpeedRHigh = new FuzzyRuleAntecedent();
+    ifRollHighAndSpeedRHigh->joinWithAND(RollHigh, SpeedRHigh);
+    FuzzyRule *rule19 = new FuzzyRule(19, ifRollHighAndSpeedRHigh, thenRPWMVeryLow); 
+    fuzzy->addFuzzyRule(rule19);
+
+    FuzzyRuleAntecedent* ifRollHighAndSpeedRVeryHigh = new FuzzyRuleAntecedent();
+    ifRollHighAndSpeedRVeryHigh->joinWithAND(RollHigh, SpeedRVeryHigh);
+    FuzzyRule *rule20 = new FuzzyRule(20, ifRollHighAndSpeedRVeryHigh, thenRPWMVeryLow); 
+    fuzzy->addFuzzyRule(rule20);
+
+    //--Roll Very High
+    FuzzyRuleAntecedent* ifRollVeryHighAndSpeedRVeryLow = new FuzzyRuleAntecedent();
+    ifRollVeryHighAndSpeedRVeryLow->joinWithAND(RollVeryHigh, SpeedRVeryLow);
+    FuzzyRule *rule21 = new FuzzyRule(21, ifRollVeryHighAndSpeedRVeryLow, thenRPWMNormal); 
+    fuzzy->addFuzzyRule(rule21);
+
+    FuzzyRuleAntecedent* ifRollVeryHighAndSpeedRLow = new FuzzyRuleAntecedent();
+    ifRollVeryHighAndSpeedRLow->joinWithAND(RollVeryHigh, SpeedRLow); 
+    FuzzyRule *rule22 = new FuzzyRule(22, ifRollVeryHighAndSpeedRLow, thenRPWMLow); 
+    fuzzy->addFuzzyRule(rule22);
+
+    FuzzyRuleAntecedent* ifRollVeryHighAndSpeedRNormal = new FuzzyRuleAntecedent();
+    ifRollVeryHighAndSpeedRNormal->joinWithAND(RollVeryHigh, SpeedRNormal);
+    FuzzyRule *rule23 = new FuzzyRule(23, ifRollVeryHighAndSpeedRNormal, thenRPWMVeryLow); 
+    fuzzy->addFuzzyRule(rule23);
+
+    FuzzyRuleAntecedent* ifRollVeryHighAndSpeedRHigh = new FuzzyRuleAntecedent();
+    ifRollVeryHighAndSpeedRHigh->joinWithAND(RollVeryHigh, SpeedRHigh);
+    FuzzyRule *rule24 = new FuzzyRule(24, ifRollVeryHighAndSpeedRHigh, thenRPWMVeryLow); 
+    fuzzy->addFuzzyRule(rule24);
+
+    FuzzyRuleAntecedent* ifRollVeryHighAndSpeedRVeryHigh = new FuzzyRuleAntecedent();
+    ifRollVeryHighAndSpeedRVeryHigh->joinWithAND(RollVeryHigh, SpeedRVeryHigh); 
+    FuzzyRule *rule25 = new FuzzyRule(25, ifRollVeryHighAndSpeedRVeryHigh, thenRPWMVeryLow); 
+    fuzzy->addFuzzyRule(rule25);
+  }
+
+  void runFuzzyRoll(){
+    fuzzy->setInput(1, Roll - refRoll);
+    fuzzy->setInput(2, RateRoll);
+    fuzzy->fuzzify(); 
+    if (StartFuzzyRoll == 1){
+      Throttle_Roll += fuzzy->defuzzify(1);
+    }
+    // InputRoll = prev_InputRoll + Throttle_Roll;
+    
+    InputThrottle = input_throttle;
+
+    if (InputThrottle > 1500) InputThrottle = 1500;
+
+    // + configuration
+    /*      M1
+            |
+            |
+      M4--------- M2
+            |
+            |
+            M3
+    */
+
+    MotorInput1= InputThrottle;
+    MotorInput2= InputThrottle - Throttle_Roll;
+    MotorInput3= InputThrottle;
+    MotorInput4= InputThrottle + Throttle_Roll;
+
+    int MaxMotorInput=1700;
+    if (MotorInput1 > MaxMotorInput)MotorInput1 = MaxMotorInput;
+    if (MotorInput2 > MaxMotorInput)MotorInput2 = MaxMotorInput; 
+    if (MotorInput3 > MaxMotorInput)MotorInput3 = MaxMotorInput; 
+    if (MotorInput4 > MaxMotorInput)MotorInput4 = MaxMotorInput;
+
+    int ThrottleIdle=1100;
+    if (MotorInput1 < ThrottleIdle) MotorInput1 =  ThrottleIdle;
+    if (MotorInput2 < ThrottleIdle) MotorInput2 =  ThrottleIdle;
+    if (MotorInput3 < ThrottleIdle) MotorInput3 =  ThrottleIdle;
+    if (MotorInput4 < ThrottleIdle) MotorInput4 =  ThrottleIdle;
+
+    int ThrottleCutOff=1000;
+      if (InputThrottle<1050) {
+        MotorInput1=ThrottleCutOff; 
+        MotorInput2=ThrottleCutOff;
+        MotorInput3=ThrottleCutOff; 
+        MotorInput4=ThrottleCutOff;
+        resetFuzzyRoll();
+      }
+    Serial.print("IMU DATA | ");
+    Serial.print("Gx:");Serial.print(RateRoll); Serial.print(" | ");
+    Serial.print("Gy:");Serial.print(RatePitch); Serial.print(" | ");
+    Serial.print("Gz:");Serial.print(RateYaw); Serial.print(" | ");
+    Serial.print("R:");Serial.print(Roll); Serial.print(" | ");
+    Serial.print("P:");Serial.print(Pitch); Serial.print(" | ");
+    Serial.print("Y:");Serial.println(Yaw);
+
+    Serial.print("Fuzzy Roll | ");
+    Serial.print("Error Roll : "); Serial.print(Roll - refRoll); Serial.print(" | ");
+    Serial.print("iR:");Serial.print(Throttle_Roll); Serial.print(" | ");
+
+    Serial.print("MotorFuzzy | ");
+    Serial.print("M1P:");Serial.print(MotorInput1); Serial.print(" | ");
+    Serial.print("M2P:");Serial.print(MotorInput2); Serial.print(" | ");
+    Serial.print("M3P:");Serial.print(MotorInput3); Serial.print(" | ");
+    Serial.print("M4P:");Serial.print(MotorInput4); Serial.println(" | ");
+  }
+  
+  void resetFuzzyRoll(){
+    Throttle_Roll = 0;
+    MotorInput1 = InputThrottle;
+    MotorInput2 = InputThrottle;
+    MotorInput3 = InputThrottle;
+    MotorInput4 = InputThrottle;
+  }
+#endif
 
 // 7. RTC BuiltIn
 uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENABLE_SD_CARD
@@ -1150,20 +1480,260 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
 #endif
 
 #ifdef ENABLE_CUSTOM
-// DSHOT 600 with Cyclone ESC
-#include <Arduino.h>
 
-#include "DShot.h"
+float dRefRoll = 2; // 10 deg/s
+float dt = 0.01;          // 10ms
 
-constexpr uint16_t LOOP_HZ = 2000;
+// volatile float RatePitch, RateRoll, RateYaw;
+// float RateCalibrationPitch, RateCalibrationRoll, RateCalibrationYaw,AccXCalibration,AccYCalibration,AccZCalibration;
 
-DShot motor0(&Serial2, DShotType::DShot600); // Teensy4.X Pin 8
-DShot motor1(&Serial3, DShotType::DShot600); // Teensy4.X Pin 14
-DShot motor2(&Serial4, DShotType::DShot600); // Teensy4.X Pin 17
-DShot motor3(&Serial5, DShotType::DShot600); // Teensy4.X Pin 20
+float PAngleRoll=2; float PAnglePitch=0;
+float IAngleRoll=0.5; float IAnglePitch=0;
+float DAngleRoll=0.007; float DAnglePitch=0;
+
+float PRateRoll = 0.625;
+float IRateRoll = 0.01;
+float DRateRoll = 0.0088;
+
+float PRatePitch = 0;
+float IRatePitch = 0;
+float DRatePitch = 0;
+
+float PRateYaw = 0;
+float IRateYaw = 0;
+float DRateYaw = 0;
+
+volatile float PtermRoll; 
+volatile float ItermRoll; 
+volatile float DtermRoll; 
+volatile float PIDOutputRoll; 
+volatile float PtermPitch; 
+volatile float ItermPitch; 
+volatile float DtermPitch; 
+volatile float PIDOutputPitch; 
+volatile float PtermYaw; 
+volatile float ItermYaw; 
+volatile float DtermYaw; 
+volatile float PIDOutputYaw; 
+
+volatile float DesiredRateRoll, DesiredRatePitch, DesiredRateYaw;
+volatile float ErrorRateRoll, ErrorRatePitch, ErrorRateYaw;
+volatile float InputRoll, InputThrottle, InputPitch, InputYaw;
+volatile float PrevErrorRateRoll, PrevErrorRatePitch, PrevErrorRateYaw;
+volatile float PrevItermRateRoll, PrevItermRatePitch, PrevItermRateYaw;
+volatile float PIDReturn[] = {0, 0, 0};
+
+float setPointRoll = 0, setPointPitch = 0;
+volatile float DesiredAngleRoll = setPointRoll, DesiredAnglePitch = setPointPitch;
+volatile float ErrorAngleRoll, ErrorAnglePitch;
+volatile float PrevErrorAngleRoll, PrevErrorAnglePitch;
+volatile float PrevItermAngleRoll, PrevItermAnglePitch;
 
 
- 
+
+void pid_equation(float Error, float P, float I, float D, float PrevError, float PrevIterm)
+{
+  float Pterm = P * Error;
+  float Iterm = PrevIterm +( I * (Error + PrevError) * (dt/2));
+  if (Iterm > 400)
+  {
+    Iterm = 400;
+  }
+  else if (Iterm < -400)
+  {
+  Iterm = -400;
+  }
+  float Dterm = D *( (Error - PrevError)/dt);
+  float PIDOutput = Pterm + Iterm + Dterm;
+  if (PIDOutput > 400)
+  {
+    PIDOutput = 400;
+  }
+  else if (PIDOutput < -400)
+  {
+    PIDOutput = -400;
+  }
+  PIDReturn[0] = PIDOutput;
+  PIDReturn[1] = Error;
+  PIDReturn[2] = Iterm;
+}
+
+void resetPidAngleRate(){
+  PrevErrorRateRoll=0; PrevErrorRatePitch=0; PrevErrorRateYaw=0;
+  PrevItermRateRoll=0; PrevItermRatePitch=0; PrevItermRateYaw=0;
+  PrevErrorAngleRoll=0; PrevErrorAnglePitch=0;    
+  PrevItermAngleRoll=0; PrevItermAnglePitch=0;
+}
+
+void loopPidAngleRate(){
+  if (setPointRoll < refRoll) {
+    setPointRoll += dRefRoll * dt;
+  }
+  else{
+    setPointRoll = refRoll;  // Set the setpoint to maxSetpoint if it exceeds the target
+  }
+
+  DesiredAngleRoll = setPointRoll;
+  DesiredAnglePitch = refPitch;
+  ErrorAngleRoll = DesiredAngleRoll - Roll;
+  PtermRoll = PAngleRoll * ErrorAngleRoll;
+  ItermRoll = PrevItermAngleRoll + (IAngleRoll * (ErrorAngleRoll + PrevErrorAngleRoll) * (dt / 2));
+  ItermRoll = (ItermRoll > 400) ? 400 : ((ItermRoll < -400) ? -400 : ItermRoll);
+  DtermRoll = DAngleRoll * ((ErrorAngleRoll - PrevErrorAngleRoll) / dt);
+  PIDOutputRoll = PtermRoll + ItermRoll + DtermRoll;
+  PIDOutputRoll = (PIDOutputRoll > 400) ? 400 : ((PIDOutputRoll < -400) ? -400 : PIDOutputRoll);
+  DesiredRateRoll = PIDOutputRoll;
+  PrevErrorAngleRoll = ErrorAngleRoll;
+  PrevItermAngleRoll = ItermRoll;
+
+  ErrorAngleRoll = DesiredAngleRoll - Roll;
+  PtermRoll = PAngleRoll * ErrorAngleRoll;
+  ItermRoll = PrevItermAngleRoll + (IAngleRoll * (ErrorAngleRoll + PrevErrorAngleRoll) * (dt / 2));
+  ItermRoll = (ItermRoll > 400) ? 400 : ((ItermRoll < -400) ? -400 : ItermRoll);
+  DtermRoll = DAngleRoll * ((ErrorAngleRoll - PrevErrorAngleRoll) / dt);
+  PIDOutputRoll = PtermRoll + ItermRoll + DtermRoll;
+  PIDOutputRoll = (PIDOutputRoll > 400) ? 400 : ((PIDOutputRoll < -400) ? -400 : PIDOutputRoll);
+  DesiredRateRoll = PIDOutputRoll;
+  PrevErrorAngleRoll = ErrorAngleRoll;
+  PrevItermAngleRoll = ItermRoll;
+
+  ErrorAnglePitch = DesiredAnglePitch - Pitch;
+  PtermPitch = PAnglePitch * ErrorAnglePitch;
+  ItermPitch = PrevItermAnglePitch + (IAnglePitch * (ErrorAnglePitch + PrevErrorAnglePitch) * (dt / 2));
+  ItermPitch = (ItermPitch > 400) ? 400 : ((ItermPitch < -400) ? -400 : ItermPitch);
+  DtermPitch = DAnglePitch * ((ErrorAnglePitch - PrevErrorAnglePitch) / dt);
+  PIDOutputPitch = PtermPitch + ItermPitch + DtermPitch;
+  PIDOutputPitch = (PIDOutputPitch > 400) ? 400 : ((PIDOutputPitch < -400) ? -400 : PIDOutputPitch);
+  DesiredRatePitch = PIDOutputPitch;
+  PrevErrorAnglePitch = ErrorAnglePitch;
+  PrevItermAnglePitch = ItermPitch;
+
+  // Compute errors
+  ErrorRateRoll = DesiredRateRoll - RateRoll;
+  ErrorRatePitch = DesiredRatePitch - RatePitch;
+  ErrorRateYaw = DesiredRateYaw - RateYaw;
+
+  // Roll Axis PID
+  PtermRoll = PRateRoll * ErrorRateRoll;
+  ItermRoll = PrevItermRateRoll + (IRateRoll * (ErrorRateRoll + PrevErrorRateRoll) * (dt / 2));
+  ItermRoll = (ItermRoll > 400) ? 400 : ((ItermRoll < -400) ? -400 : ItermRoll);
+  DtermRoll = DRateRoll * ((ErrorRateRoll - PrevErrorRateRoll) / dt);
+  PIDOutputRoll = PtermRoll + ItermRoll + DtermRoll;
+  PIDOutputRoll = (PIDOutputRoll > 400) ? 400 : ((PIDOutputRoll < -400) ? -400 : PIDOutputRoll);
+
+  // Update output and previous values for Roll
+  InputRoll = PIDOutputRoll;
+  PrevErrorRateRoll = ErrorRateRoll;
+  PrevItermRateRoll = ItermRoll;
+
+  // Pitch Axis PID
+  PtermPitch = PRatePitch * ErrorRatePitch;
+  ItermPitch = PrevItermRatePitch + (IRatePitch * (ErrorRatePitch + PrevErrorRatePitch) * (dt / 2));
+  ItermPitch = (ItermPitch > 400) ? 400 : ((ItermPitch < -400) ? -400 : ItermPitch);
+  DtermPitch = DRatePitch * ((ErrorRatePitch - PrevErrorRatePitch) / dt);
+  PIDOutputPitch = PtermPitch + ItermPitch + DtermPitch;
+  PIDOutputPitch = (PIDOutputPitch > 400) ? 400 : ((PIDOutputPitch < -400) ? -400 : PIDOutputPitch);
+
+  // Update output and previous values for Pitch
+  InputPitch = PIDOutputPitch;
+  PrevErrorRatePitch = ErrorRatePitch;
+  PrevItermRatePitch = ItermPitch;
+
+  // Yaw Axis PID
+  PtermYaw = PRateYaw * ErrorRateYaw;
+  ItermYaw = PrevItermRateYaw + (IRateYaw * (ErrorRateYaw + PrevErrorRateYaw) * (dt / 2));
+  ItermYaw = (ItermYaw > 400) ? 400 : ((ItermYaw < -400) ? -400 : ItermYaw);  // Clamp ItermYaw to [-400, 400]
+  DtermYaw = DRateYaw * ((ErrorRateYaw - PrevErrorRateYaw) / dt);
+  PIDOutputYaw = PtermYaw + ItermYaw + DtermYaw;
+  PIDOutputYaw = (PIDOutputYaw > 400) ? 400 : ((PIDOutputYaw < -400) ? -400 : PIDOutputYaw);  // Clamp PIDOutputYaw to [-400, 400]
+
+  // Update output and previous values for Yaw
+  InputYaw = PIDOutputYaw;
+  PrevErrorRateYaw = ErrorRateYaw;
+  PrevItermRateYaw = ItermYaw;
+
+  InputThrottle = input_throttle;
+  
+  if (InputThrottle > 1800)
+  {
+    InputThrottle = 1800;
+  }
+
+  
+  MotorInput1 =  (InputThrottle - InputPitch); // front right - counter clockwise
+  MotorInput2 =  (InputThrottle - InputRoll); // rear right - clockwise
+  MotorInput3 =  (InputThrottle + InputPitch); // rear left  - counter clockwise
+  MotorInput4 =  (InputThrottle + InputRoll); //front left - clockwise
+
+  if (MotorInput1 > 2000)
+  {
+    MotorInput1 = 1999;
+  }
+
+  if (MotorInput2 > 2000)
+  {
+    MotorInput2 = 1999;
+  }
+
+  if (MotorInput3 > 2000)
+  {
+    MotorInput3 = 1999;
+  }
+
+  if (MotorInput4 > 2000)
+  {
+    MotorInput4 = 1999;
+  }
+       
+        
+int ThrottleIdle = 1100;
+int ThrottleCutOff = 1000;
+  if (MotorInput1 < ThrottleIdle)
+  {
+    MotorInput1 = ThrottleIdle;
+  }
+  if (MotorInput2 < ThrottleIdle)
+  {
+    MotorInput2 = ThrottleIdle;
+  }
+  if (MotorInput3 < ThrottleIdle)
+  {
+    MotorInput3 = ThrottleIdle;
+  }
+  if (MotorInput4 < ThrottleIdle)
+  {
+    MotorInput4 = ThrottleIdle;
+  }
+
+  // int ThrottleCutOff=1000;
+    if (InputThrottle<1050) {
+      MotorInput1=ThrottleCutOff; 
+      MotorInput2=ThrottleCutOff;
+      MotorInput3=ThrottleCutOff; 
+      MotorInput4=ThrottleCutOff;
+      resetPidAngleRate();
+    }
+
+  #ifdef ENABLE_CUSTOM_PRINT
+    Serial.print("PIDAngleRate| ");
+    Serial.print("rR");Serial.print(DesiredAngleRoll); Serial.print(" | ");
+    Serial.print("rP");Serial.print(DesiredAnglePitch); Serial.print(" | ");
+    Serial.print("rGx");Serial.print(DesiredRateRoll); Serial.print(" | ");
+    Serial.print("rGy");Serial.print(DesiredRatePitch); Serial.print(" | ");
+    Serial.print("iT:");Serial.print(InputThrottle); Serial.print(" | ");
+    Serial.print("iR:");Serial.print(InputRoll); Serial.print(" | ");
+    Serial.print("iP:");Serial.print(InputPitch); Serial.print(" | ");
+    Serial.print("iY:");Serial.println(InputYaw);
+    
+    Serial.print("MotorPID| ");
+    Serial.print("M1P:");Serial.print(MotorInput1); Serial.print(" | ");
+    Serial.print("M2P:");Serial.print(MotorInput2); Serial.print(" | ");
+    Serial.print("M3P:");Serial.print(MotorInput3); Serial.print(" | ");
+    Serial.print("M4P:");Serial.print(MotorInput4); Serial.print(" | ");
+    Serial.print("M5P:");Serial.print(MotorInput5); Serial.print(" | ");
+    Serial.print("M6P:");Serial.println(MotorInput6);
+  #endif
+}
 #endif
 
 // 9. Receiver
@@ -1204,8 +1774,8 @@ DShot motor3(&Serial5, DShotType::DShot600); // Teensy4.X Pin 20
   int timerCounter;
   void displayInstructions(){  
     Serial.println("\n\nUSER INPUT INTEGER on SERIAL MONITOR");
-    Serial.println("    18  \tSending minimum throttle");
-    Serial.println("    1  \tSending maximum throttle");
+    // Serial.println("    18  \tSending min throttle");
+    Serial.println("    1  \tSending max throttle");
     Serial.println("    2  \tRunning test");
     Serial.println("    3  \tThrottle : 1100");
     Serial.println("    4  \tThrottle : 1200");
@@ -1225,19 +1795,25 @@ DShot motor3(&Serial5, DShotType::DShot600); // Teensy4.X Pin 20
     Serial.println("   19 (4 digit PWM) \tSend Throttle to Motor 1 Manual");
     Serial.println("   20 (4 digit PWM) \tSend Throttle to Motor 2 Manual");
     Serial.println("   21 (4 digit PWM) \tSend Throttle to Motor 3 Manual");
-    Serial.println("   22 (4 digit PWM) \tSend Throttle to Motor 4 Manual\n\n");
+    Serial.println("   22 (4 digit PWM) \tSend Throttle to Motor 4 Manual");
+    Serial.println("   23 ref Roll (eg/ 23 10  --> ref roll 10 deg");
+    Serial.println("   24 Start Fuzzy Roll Algorithm\n\n");
+    Serial.println("   25 PAngleRoll\n\n");
+    Serial.println("   26 PAnglePitch\n\n");
+    Serial.println("   27 PAngleYaw\n\n");
   }
 
   void userInput(){
+    float temp;
     if (Serial.available()) {
       
         data = Serial.parseInt();
         switch (data) {
             // 0 char  == 48 ascii
-            case 18 : Serial.println("\nSending minimum throttle\n");
-                      input_throttle = MIN_PULSE_LENGTH;
-                      Serial.print("input_throttle min: ");Serial.println(input_throttle);
-            break;
+            // case 18 : Serial.println("\nSending minimum throttle\n");
+            //           input_throttle = MIN_PULSE_LENGTH;
+            //           Serial.print("input_throttle min: ");Serial.println(input_throttle);
+            // break;
 
             // 1
             case 1 : Serial.println("\nSending maximum throttle\n");
@@ -1379,19 +1955,61 @@ DShot motor3(&Serial5, DShotType::DShot600); // Teensy4.X Pin 20
                 // Serial.print("Motor 4 Throttle set to: "); Serial.println(motor4_throttle);
                 // runMotor4(motor4_throttle); // Fungsi untuk motor 4
                 break;
-            case 30:
-                Serial.println("\nReference Roll: \n");
-                // Serial.println("Enter value (e.g., 1400):");
+            case 23:
                 while (!Serial.available());
                 refRoll = Serial.parseInt();
-                if (refRoll > -20 && refRoll < 20) {
+                if (refRoll > -46 && refRoll < 46) {
                   Serial.print("Ref ROll SET TO: "); 
                   Serial.println(refRoll);
                 } else {
                   Serial.println("Invalid input. Please enter a valid number.");
                 }
-                // Serial.print("Motor 4 Throttle set to: "); Serial.println(motor4_throttle);
-                // runMotor4(motor4_throttle); // Fungsi untuk motor 4
+                break;
+            case 24:
+                while (!Serial.available());
+                #ifdef ENABLE_FUZZY_ROLL
+                  StartFuzzyRoll = Serial.parseInt();
+                #else
+                  bool StartFuzzyRoll;
+                #endif
+
+                StartFuzzyRoll = Serial.parseInt();
+                if (StartFuzzyRoll){
+                  Serial.println("Starting Fuzzy Roll");
+                } else if (StartFuzzyRoll == 0) {
+                  Serial.println("Stoping Fuzzy Roll");
+
+                  #ifdef ENABLE_FUZZY_ROLL
+                  resetFuzzyRoll();
+                  #endif
+                }
+                break;
+            case 25:
+                while (!Serial.available());
+                temp = Serial.parseInt();
+                if (temp > 5 || temp < 0 ){
+                  Serial.println("Out off Range PAngleRoll");
+                } else{
+                  PAngleRoll = temp;
+                }
+                break;
+            case 26:
+                while (!Serial.available());
+                temp = Serial.parseInt();
+                if (temp > 5 || temp < 0 ){
+                  Serial.println("Out off Range IAnglePitch");
+                } else{
+                  IAnglePitch = temp;
+                }
+                break;
+            case 27:
+                while (!Serial.available());
+                float temp = Serial.parseInt();
+                if (temp > 5 || temp < 0 ){
+                  Serial.println("Out off Range DAngleRoll");
+                } else{
+                  DAngleRoll = temp;
+                }
                 break;
         }
     }
@@ -1601,6 +2219,18 @@ DShot motor3(&Serial5, DShotType::DShot600); // Teensy4.X Pin 20
       Serial.print("M5P:");Serial.print(MotorInput5); Serial.print(" | ");
       Serial.print("M6P:");Serial.println(MotorInput6);
     #endif
+    #ifdef ENABLE_MONITORING_FUZZY_ROLL_10HZ
+      Serial.print("Fuzzy Roll | ");
+      Serial.print("iR:");Serial.print(Throttle_Roll); Serial.print(" | ");
+
+      Serial.print("MotorFuzzy | ");
+      Serial.print("M1P:");Serial.print(MotorInput1); Serial.print(" | ");
+      Serial.print("M2P:");Serial.print(MotorInput2); Serial.print(" | ");
+      Serial.print("M3P:");Serial.print(MotorInput3); Serial.print(" | ");
+      Serial.print("M4P:");Serial.print(MotorInput4); Serial.print(" | ");
+      // Serial.print("M5P:");Serial.print(MotorInput5); Serial.print(" | ");
+      // Serial.print("M6P:");Serial.println(MotorInput6);
+    #endif
     #ifdef ENABLE_MONITORING_RPM_10HZ
       Serial.print("RPM| ");
       Serial.print("RPM:");Serial.println(rpm);
@@ -1622,8 +2252,9 @@ DShot motor3(&Serial5, DShotType::DShot600); // Teensy4.X Pin 20
   }
   void logSerial1(){
     char bufferSerial1[512];
-    int lenSerial1 = snprintf(bufferSerial1, sizeof(bufferSerial1), "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", 
-                       cMillis,input_throttle,MotorInput1, MotorInput2, MotorInput3, MotorInput4, Roll, Pitch, Yaw, RateRoll,RatePitch,RateYaw, refRoll, RefRateRoll,InputRoll, refPitch, RefRatePitch,InputPitch);
+  //                                                                 1   2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18
+    int lenSerial1 = snprintf(bufferSerial1, sizeof(bufferSerial1), "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", 
+                       cMillis/*1*/,input_throttle/*2*/,MotorInput1/*3*/, MotorInput2/*4*/, MotorInput3/*5*/, MotorInput4/*6*/, Roll/*7*/, Pitch/*8*/, Yaw/*9*/, RateRoll/*10*/,RatePitch/*11*/,RateYaw/*12*/, DesiredAngleRoll/*13*/,DesiredRateRoll/*14*/, InputRoll/*15*/ ,DesiredAnglePitch/*16*/, DesiredRatePitch/*17*/, InputPitch/*18*/);
     SerialUSB1.write(bufferSerial1, lenSerial1); // Write the entire buffer at once
   }
 #endif
@@ -1670,11 +2301,16 @@ void setup(){
     initPidAngle();
     // available @ loopPidAngle();
   #endif
+
   #ifdef ENABLE_PID_RATE
     initPidRate();
     // available @ loopPidRate();
   #endif
 
+  #ifdef ENABLE_FUZZY_ROLL
+    initFuzzyRoll();
+    // available @ runFuzzyRoll();
+  #endif
 
   #ifdef ENABLE_RTC
     initRtc();
@@ -1792,12 +2428,19 @@ void loop(){
     #ifdef ENABLE_USER_INPUT
       userInput();
     #endif
+
     #ifdef ENABLE_IMU
       readImu();
     #endif
+
+    #ifdef ENABLE_FUZZY_ROLL
+      runFuzzyRoll();
+    #endif
+
     #ifdef ENABLE_RECEIVER
       readReceiver();
     #endif
+
     #ifdef ENABLE_LIDAR
       readLidar();
     #endif
@@ -1807,7 +2450,7 @@ void loop(){
     #endif
 
     #ifdef ENABLE_CUSTOM
-      
+      loopPidAngleRate();
     #endif
     
     #ifdef ENABLE_RPM_1
