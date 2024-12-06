@@ -1,6 +1,6 @@
 /*
   USER INPUT INTEGER on SERIAL MONITOR
-  // 0 Sending minimum throttle
+  // 18 Sending minimum throttle
   // 1 Sending maximum throttle
   // 2 Running test
   // 3 Throttle : 1100
@@ -18,12 +18,14 @@
   //15 SP_RPM: -500
   //16 SP_RPM: +1000
   //17 SP_RPM: -1000
-  //30 RefRoll : ... Input...
-  //31 Kp
-  //32 Ki
-  //25 PAngleRoll
-  //26 IAnglePitch
-  //27 DAngleRoll
+  //23 RefRoll : ... Input...
+  //
+  //31 PAnglePitch : 5
+    32 IAnglePitch : 0
+    33 DAnglePitch : 0
+    34 PRateRoll  : 1
+    35 IRateRoll  : 0
+    36 DRateRoll  : 0
   //
 */
 
@@ -32,7 +34,7 @@
 // Enable or disable modules by commenting/uncommenting
 #define ENABLE_CUSTOM
 
-#define ENABLE_MOTOR             // 5        // DEFAULT QUAD
+#define ENABLE_MOTOR              // 5        // DEFAULT QUAD
 // #define ENABLE_MOTOR_HEXACOPTER             // UNCOMMENT FOR HEXACOPTER
 // #define ENABLE_MOTOR_MANUAL_ALL
 // #define ENABLE_MOTOR_MANUAL_PER_MOTOR
@@ -94,6 +96,7 @@
     // #define ENABLE_MONITORING_DYNAMIC              // BELUM BISA
   
 #define ENABLE_SERIAL1            // COM15 // Tools > UBS_Type > Dual_Serial
+  #define ENABLE_SERIAL1_INPUT
   //Choose ONE of SERIAL FREQUENCY from option BELOW/
   // #define ENABLE_SERIAL1_500HZ
   #define ENABLE_SERIAL1_100HZ
@@ -127,6 +130,7 @@
 
   unsigned long cMicros = 0;
   unsigned long cMillis = 0;
+  unsigned long iteration = 0;
 
 
   void initInterval(){
@@ -226,12 +230,12 @@
     
       #ifdef ENABLE_IMU_PRINT
         Serial.print("IMU| ");
-        Serial.print("Gx:");Serial.print(RateRoll); Serial.print(" | ");
-        Serial.print("Gy:");Serial.print(RatePitch); Serial.print(" | ");
-        Serial.print("Gz:");Serial.print(RateYaw); Serial.print(" | ");
-        Serial.print("R:");Serial.print(Roll); Serial.print(" | ");
-        Serial.print("P:");Serial.print(Pitch); Serial.print(" | ");
-        Serial.print("Y:");Serial.println(Yaw);
+        Serial.print("R:");Serial.print(Roll,2); Serial.print(" | ");
+        Serial.print("P:");Serial.print(Pitch,2); Serial.print(" | ");
+        Serial.print("Y:");Serial.print(Yaw,2);Serial.print(" | ");
+        Serial.print("Gx:");Serial.print(RateRoll,2); Serial.print(" | ");
+        Serial.print("Gy:");Serial.print(RatePitch,2); Serial.print(" | ");
+        Serial.print("Gz:");Serial.println(RateYaw,2); 
         
       #endif
   }
@@ -1481,23 +1485,35 @@ uint8_t currentHour, currentMinute, currentSecond;    // Global Variable for ENA
 
 #ifdef ENABLE_CUSTOM
 
-float dRefRoll = 2; // 10 deg/s
+float dRefRoll = 5; // deg/s
 float dt = 0.01;          // 10ms
 
 // volatile float RatePitch, RateRoll, RateYaw;
 // float RateCalibrationPitch, RateCalibrationRoll, RateCalibrationYaw,AccXCalibration,AccYCalibration,AccZCalibration;
 
-float PAngleRoll=2; float PAnglePitch=0;
-float IAngleRoll=0.5; float IAnglePitch=0;
-float DAngleRoll=0.007; float DAnglePitch=0;
+float PAngleRoll=0; float PAnglePitch=2;
+float IAngleRoll=0; float IAnglePitch=0.5;
+float DAngleRoll=0; float DAnglePitch=0.007;
 
-float PRateRoll = 0.625;
-float IRateRoll = 0.01;
-float DRateRoll = 0.0088;
+float PRateRoll = 0;
+float IRateRoll = 0;
+float DRateRoll = 0;
 
-float PRatePitch = 0;
-float IRatePitch = 0;
-float DRatePitch = 0;
+float PRatePitch = 0.625;
+float IRatePitch = 0.01;
+float DRatePitch = 0.0088;
+
+// float PAngleRoll=6; float PAnglePitch=5;
+// float IAngleRoll=0.1; float IAnglePitch=1;
+// float DAngleRoll=0.005; float DAnglePitch=0.005;
+
+// float PRateRoll = 0.852;
+// float IRateRoll = 0.1;
+// float DRateRoll = 0.005;
+
+// float PRatePitch = 0.6;
+// float IRatePitch = 0;
+// float DRatePitch = 0;
 
 float PRateYaw = 0;
 float IRateYaw = 0;
@@ -1529,6 +1545,20 @@ volatile float ErrorAngleRoll, ErrorAnglePitch;
 volatile float PrevErrorAngleRoll, PrevErrorAnglePitch;
 volatile float PrevItermAngleRoll, PrevItermAnglePitch;
 
+float AccX, AccY, AccZ;
+float AngleRoll, AnglePitch;
+float KalmanAngleRoll=0, KalmanUncertaintyAngleRoll=2*2;
+float KalmanAnglePitch=0, KalmanUncertaintyAnglePitch=2*2;
+float Kalman1DOutput[]={0,0};
+void kalman_1d(float KalmanState, float KalmanUncertainty, float KalmanInput, float KalmanMeasurement) {
+  KalmanState=KalmanState+dt*KalmanInput;
+  KalmanUncertainty=KalmanUncertainty + dt * dt * 4 * 4;
+  float KalmanGain=KalmanUncertainty * 1/(1*KalmanUncertainty + 3 * 3);
+  KalmanState=KalmanState+KalmanGain * (KalmanMeasurement-KalmanState);
+  KalmanUncertainty=(1-KalmanGain) * KalmanUncertainty;
+  Kalman1DOutput[0]=KalmanState; 
+  Kalman1DOutput[1]=KalmanUncertainty;
+}
 
 
 void pid_equation(float Error, float P, float I, float D, float PrevError, float PrevIterm)
@@ -1567,11 +1597,28 @@ void resetPidAngleRate(){
 
 void loopPidAngleRate(){
   if (setPointRoll < refRoll) {
+    // Increase setpoint towards reference
     setPointRoll += dRefRoll * dt;
+    
+    // Ensure setPointRoll does not exceed refRoll
+    if (setPointRoll > refRoll) {
+      setPointRoll = refRoll;  // Cap at the refRoll
+    }
   }
-  else{
-    setPointRoll = refRoll;  // Set the setpoint to maxSetpoint if it exceeds the target
+  else if (setPointRoll > refRoll) {
+    // Decrease setpoint towards reference
+    setPointRoll -= dRefRoll * dt;
+
+    // Ensure setPointRoll does not drop below refRoll
+    if (setPointRoll < refRoll) {
+      setPointRoll = refRoll;  // Cap at the refRoll
+    }
   }
+
+  kalman_1d(KalmanAngleRoll, KalmanUncertaintyAngleRoll, RateRoll, Roll);
+  KalmanAngleRoll=Kalman1DOutput[0]; KalmanUncertaintyAngleRoll=Kalman1DOutput[1];
+  kalman_1d(KalmanAnglePitch, KalmanUncertaintyAnglePitch, RatePitch, Pitch);
+  KalmanAnglePitch=Kalman1DOutput[0]; KalmanUncertaintyAnglePitch=Kalman1DOutput[1];
 
   DesiredAngleRoll = setPointRoll;
   DesiredAnglePitch = refPitch;
@@ -1586,16 +1633,6 @@ void loopPidAngleRate(){
   PrevErrorAngleRoll = ErrorAngleRoll;
   PrevItermAngleRoll = ItermRoll;
 
-  ErrorAngleRoll = DesiredAngleRoll - Roll;
-  PtermRoll = PAngleRoll * ErrorAngleRoll;
-  ItermRoll = PrevItermAngleRoll + (IAngleRoll * (ErrorAngleRoll + PrevErrorAngleRoll) * (dt / 2));
-  ItermRoll = (ItermRoll > 400) ? 400 : ((ItermRoll < -400) ? -400 : ItermRoll);
-  DtermRoll = DAngleRoll * ((ErrorAngleRoll - PrevErrorAngleRoll) / dt);
-  PIDOutputRoll = PtermRoll + ItermRoll + DtermRoll;
-  PIDOutputRoll = (PIDOutputRoll > 400) ? 400 : ((PIDOutputRoll < -400) ? -400 : PIDOutputRoll);
-  DesiredRateRoll = PIDOutputRoll;
-  PrevErrorAngleRoll = ErrorAngleRoll;
-  PrevItermAngleRoll = ItermRoll;
 
   ErrorAnglePitch = DesiredAnglePitch - Pitch;
   PtermPitch = PAnglePitch * ErrorAnglePitch;
@@ -1660,9 +1697,9 @@ void loopPidAngleRate(){
   }
 
   
-  MotorInput1 =  (InputThrottle - InputPitch); // front right - counter clockwise
+  MotorInput1 =  (InputThrottle + InputPitch); // front right - counter clockwise
   MotorInput2 =  (InputThrottle - InputRoll); // rear right - clockwise
-  MotorInput3 =  (InputThrottle + InputPitch); // rear left  - counter clockwise
+  MotorInput3 =  (InputThrottle - InputPitch); // rear left  - counter clockwise
   MotorInput4 =  (InputThrottle + InputRoll); //front left - clockwise
 
   if (MotorInput1 > 2000)
@@ -1715,7 +1752,25 @@ int ThrottleCutOff = 1000;
     }
 
   #ifdef ENABLE_CUSTOM_PRINT
+    Serial.print("PIDOut| ");
+    Serial.print("PTR:");Serial.print(PtermRoll,3); Serial.print(" | ");
+    Serial.print("ITR:");Serial.print(ItermRoll,3); Serial.print(" | ");
+    Serial.print("DTR:");Serial.print(DtermRoll,3); Serial.print("           |       ");
+    Serial.print("PTP:");Serial.print(PtermPitch,3); Serial.print(" | ");
+    Serial.print("ITP:");Serial.print(ItermPitch,3); Serial.print(" | ");
+    Serial.print("DTP:");Serial.println(DtermPitch,3);
+
+    Serial.print("PIDGain| ");
+    Serial.print("A_PPitch: ");Serial.print(PAnglePitch,3); Serial.print(" | ");
+    Serial.print("A_IPitch: ");Serial.print(IAnglePitch,3); Serial.print(" | ");
+    Serial.print("A_DPitch: ");Serial.print(DAnglePitch,3); Serial.print(" | ");
+    Serial.print("R_PPitch: ");Serial.print(PRatePitch,3); Serial.print(" | ");
+    Serial.print("R_IPitch: ");Serial.print(IRatePitch,3); Serial.print(" | ");
+    Serial.print("R_DPitch: ");Serial.println(DRatePitch,3);
+    
     Serial.print("PIDAngleRate| ");
+    Serial.print("KalmanR");Serial.print(KalmanAngleRoll); Serial.print(" | ");
+    Serial.print("KalmanP");Serial.print(KalmanAnglePitch); Serial.print(" | ");
     Serial.print("rR");Serial.print(DesiredAngleRoll); Serial.print(" | ");
     Serial.print("rP");Serial.print(DesiredAnglePitch); Serial.print(" | ");
     Serial.print("rGx");Serial.print(DesiredRateRoll); Serial.print(" | ");
@@ -1729,9 +1784,12 @@ int ThrottleCutOff = 1000;
     Serial.print("M1P:");Serial.print(MotorInput1); Serial.print(" | ");
     Serial.print("M2P:");Serial.print(MotorInput2); Serial.print(" | ");
     Serial.print("M3P:");Serial.print(MotorInput3); Serial.print(" | ");
-    Serial.print("M4P:");Serial.print(MotorInput4); Serial.print(" | ");
-    Serial.print("M5P:");Serial.print(MotorInput5); Serial.print(" | ");
-    Serial.print("M6P:");Serial.println(MotorInput6);
+    Serial.print("M4P:");Serial.println(MotorInput4);
+    // Serial.print("M5P:");Serial.print(MotorInput5); Serial.print(" | ");
+    // Serial.print("M6P:");Serial.print(MotorInput6); Serial.print(" | ");
+
+
+
   #endif
 }
 #endif
@@ -1774,7 +1832,7 @@ int ThrottleCutOff = 1000;
   int timerCounter;
   void displayInstructions(){  
     Serial.println("\n\nUSER INPUT INTEGER on SERIAL MONITOR");
-    // Serial.println("    18  \tSending min throttle");
+    Serial.println("    18  \tSending min throttle");
     Serial.println("    1  \tSending max throttle");
     Serial.println("    2  \tRunning test");
     Serial.println("    3  \tThrottle : 1100");
@@ -1810,14 +1868,14 @@ int ThrottleCutOff = 1000;
         data = Serial.parseInt();
         switch (data) {
             // 0 char  == 48 ascii
-            // case 18 : Serial.println("\nSending minimum throttle\n");
-            //           input_throttle = MIN_PULSE_LENGTH;
-            //           Serial.print("input_throttle min: ");Serial.println(input_throttle);
-            // break;
+            case 18 : Serial.println("\nSending minimum throttle\n");
+                      input_throttle = MIN_PULSE_LENGTH;
+                      Serial.print("input_throttle min: ");Serial.println(input_throttle);
+            break;
 
             // 1
             case 1 : Serial.println("\nSending maximum throttle\n");
-                      input_throttle = MAX_PULSE_LENGTH;
+                      // input_throttle = MAX_PULSE_LENGTH;
                       Serial.print("input_throttle max: "); Serial.println(input_throttle);
             break;
 
@@ -1984,31 +2042,58 @@ int ThrottleCutOff = 1000;
                   #endif
                 }
                 break;
-            case 25:
+            case 31:
                 while (!Serial.available());
-                temp = Serial.parseInt();
-                if (temp > 5 || temp < 0 ){
+                temp = Serial.parseFloat();
+                if (temp > 8 || temp < 0 ){
                   Serial.println("Out off Range PAngleRoll");
                 } else{
-                  PAngleRoll = temp;
+                  PAnglePitch = temp;
                 }
                 break;
-            case 26:
+            case 32:
                 while (!Serial.available());
-                temp = Serial.parseInt();
-                if (temp > 5 || temp < 0 ){
+                temp = Serial.parseFloat();
+                if (temp > 8 || temp < 0 ){
                   Serial.println("Out off Range IAnglePitch");
                 } else{
                   IAnglePitch = temp;
                 }
                 break;
-            case 27:
+            case 33:
                 while (!Serial.available());
-                float temp = Serial.parseInt();
-                if (temp > 5 || temp < 0 ){
+                temp = Serial.parseFloat();
+                if (temp > 8 || temp < 0 ){
                   Serial.println("Out off Range DAngleRoll");
                 } else{
-                  DAngleRoll = temp;
+                  DAnglePitch = temp;
+                }
+                break;
+            case 34:
+                while (!Serial.available());
+                temp = Serial.parseFloat();
+                if (temp > 8 || temp < 0 ){
+                  Serial.println("Out off Range PRateRoll");
+                } else{
+                  PRatePitch = temp;
+                }
+                break;
+            case 35:
+                while (!Serial.available());
+                temp = Serial.parseFloat();
+                if (temp > 8 || temp < 0 ){
+                  Serial.println("Out off Range PRateRoll");
+                } else{
+                  IRatePitch = temp;
+                }
+                break;
+            case 36:
+                while (!Serial.available());
+                temp = Serial.parseFloat();
+                if (temp > 8 || temp < 0 ){
+                  Serial.println("Out off Range PRateRoll");
+                } else{
+                  DRatePitch = temp;
                 }
                 break;
         }
@@ -2086,17 +2171,17 @@ int ThrottleCutOff = 1000;
 
 // 11. PID for Controller
 #ifdef ENABLE_LED
-  #define ledRed 30
-  #define ledGreen 31
+  #define ledRed 33
+  #define ledGreen 32
   #define ledTeensy 13
 
   void initLed(){
-    pinMode(13, OUTPUT); 
-    pinMode(30, OUTPUT);
-    pinMode(31, OUTPUT);
-    digitalWrite(13, HIGH);
-    digitalWrite(30, HIGH);
-    digitalWrite(31, HIGH);
+    pinMode(ledTeensy, OUTPUT); 
+    pinMode(ledRed, OUTPUT);
+    pinMode(ledGreen, OUTPUT);
+    digitalWrite(ledTeensy, HIGH);
+    digitalWrite(ledRed, HIGH);
+    digitalWrite(ledGreen, HIGH);
   }
 
   void ledBlink(){
@@ -2246,17 +2331,54 @@ int ThrottleCutOff = 1000;
 #endif
 
 #ifdef ENABLE_SERIAL1
+  float inputData[20];
+  char bufferSerial1In[512];
+  int lenSerial1In;
+  int channelSerial1 = 0;
+
   void initSerial1(){
     Serial1.begin(115200);
     SerialUSB1.println("SerialUSB1 - ACTIVE");
   }
   void logSerial1(){
     char bufferSerial1[512];
-  //                                                                 1   2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18
-    int lenSerial1 = snprintf(bufferSerial1, sizeof(bufferSerial1), "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", 
-                       cMillis/*1*/,input_throttle/*2*/,MotorInput1/*3*/, MotorInput2/*4*/, MotorInput3/*5*/, MotorInput4/*6*/, Roll/*7*/, Pitch/*8*/, Yaw/*9*/, RateRoll/*10*/,RatePitch/*11*/,RateYaw/*12*/, DesiredAngleRoll/*13*/,DesiredRateRoll/*14*/, InputRoll/*15*/ ,DesiredAnglePitch/*16*/, DesiredRatePitch/*17*/, InputPitch/*18*/);
+  //                                                                 1   2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20
+    int lenSerial1 = snprintf(bufferSerial1, sizeof(bufferSerial1), "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", 
+                       cMillis/*1*/,input_throttle/*2*/,MotorInput1/*3*/, MotorInput2/*4*/, MotorInput3/*5*/, MotorInput4/*6*/, Roll/*7*/, Pitch/*8*/, Yaw/*9*/, RateRoll/*10*/,RatePitch/*11*/,RateYaw/*12*/,KalmanAngleRoll/*13*/, DesiredAngleRoll/*14*/,DesiredRateRoll/*15*/, InputRoll/*16*/ ,KalmanAnglePitch/*17*/,DesiredAnglePitch/*18*/, DesiredRatePitch/*19*/, InputPitch/*120*/);
     SerialUSB1.write(bufferSerial1, lenSerial1); // Write the entire buffer at once
   }
+  void readSerial1(){
+    // Serial.println(inputData[0]);
+    // Serial.println(inputData[1]);
+
+    if (SerialUSB1.available() > 0) {
+    // Serial.println("\n---------INPUT from EXCEL-----------\n");
+    for (channelSerial1 = 0; channelSerial1 < 20; channelSerial1++) {
+      if (SerialUSB1.available() > 0) {
+        inputData[channelSerial1] = SerialUSB1.parseFloat();  // Membaca nilai float dan menyimpannya ke array
+      }
+    }
+
+    input_throttle = inputData[1]; 
+    PAnglePitch = inputData[2];
+    IAnglePitch = inputData[3];
+    DAnglePitch = inputData[4];
+    PRatePitch = inputData[5];
+    IRatePitch = inputData[6];
+    DRatePitch = inputData[7];
+    
+
+
+
+    // Serial.println("\nReceived Data:");
+    // for (int i = 0; i < 20; i++) {
+    //   Serial.print("Channel ");
+    //   Serial.print(i + 1);
+    //   Serial.print(": ");
+    //   Serial.println(inputData[i]);
+    // }
+    }
+}
 #endif
 
 void setup(){
@@ -2270,6 +2392,7 @@ void setup(){
     initSerial1();
     // available @ SerialUSB1.println("");
     // available @ logSerial1();
+    // available @ readSerial1();
   #endif
 
   #ifdef ENABLE_IMU
@@ -2416,8 +2539,27 @@ void loop(){
 
   // 100Hz
   if (cMillis - pM100Hz >= interval100Hz){
-    
+    // iteration ++;
+  // if (iteration <= 2000) {
+  //   // Increase setPointRoll from 0 to 20
+  //   refRoll = map(iteration, 0, 2000, 0, 20);
+  // }
+  // else if (iteration <= 4000) {
+  //   // Decrease setPointRoll from 20 to 0
+  //   refRoll = map(iteration, 2001, 4000, 20, 0);
+  // }
+  // else if (iteration <= 6000) {
+  //   // Decrease setPointRoll from 0 to -20
+  //   refRoll = map(iteration, 4001, 6000, 0, -20);
+  // }
+  // else {
+  //   refRoll = 0;  // Reset iteration to create a loop
+  // }
     // Fuction & Command
+    #ifdef ENABLE_SERIAL1_INPUT
+      readSerial1();
+    #endif
+
     #ifdef ENABLE_PID_ANGLE
       loopPidAngle();
     #endif
